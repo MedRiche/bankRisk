@@ -7,14 +7,16 @@ import CssBaseline from '@mui/material/CssBaseline';
 // Import des composants
 import Login from './components/auth/Login';
 import Register from './components/auth/Register';
-import ClientList from './components/clients/ClientList';
-import ClientForm from './components/clients/ClientForm';
-import ClientDetail from './components/clients/ClientDetail';
+import ClientDashboard from './components/client/ClientDashboard';
+import ClientProfile from './components/client/ClientProfile';
+import CreditApplication from './components/client/CreditApplication';
+import AdminDashboard from './components/admin/AdminDashboard';
+import ClientList from './components/admin/ClientList';
+import ClientDetail from './components/admin/ClientDetail';
+import Analytics from './components/admin/Analytics';
 
-// Import du service d'auth
 import authService from './services/authService';
 
-// Thème personnalisé
 const theme = createTheme({
   palette: {
     primary: {
@@ -23,12 +25,35 @@ const theme = createTheme({
     secondary: {
       main: '#dc004e',
     },
+    success: {
+      main: '#10b981',
+    },
+    warning: {
+      main: '#f59e0b',
+    },
+    error: {
+      main: '#ef4444',
+    },
+  },
+  typography: {
+    fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
   },
 });
 
-// Composant de route protégée
-const PrivateRoute = ({ children }) => {
-  return authService.isAuthenticated() ? children : <Navigate to="/login" />;
+// Route protégée
+const PrivateRoute = ({ children, adminOnly = false }) => {
+  const isAuthenticated = authService.isAuthenticated();
+  const isAdmin = authService.isAdmin();
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" />;
+  }
+
+  if (adminOnly && !isAdmin) {
+    return <Navigate to="/client/dashboard" />;
+  }
+
+  return children;
 };
 
 function App() {
@@ -41,43 +66,69 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
 
-          {/* Routes protégées */}
+          {/* Routes Client */}
           <Route
-            path="/clients"
+            path="/client/dashboard"
             element={
               <PrivateRoute>
+                <ClientDashboard />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/client/profile"
+            element={
+              <PrivateRoute>
+                <ClientProfile />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/client/apply-credit"
+            element={
+              <PrivateRoute>
+                <CreditApplication />
+              </PrivateRoute>
+            }
+          />
+
+          {/* Routes Admin */}
+          <Route
+            path="/admin/dashboard"
+            element={
+              <PrivateRoute adminOnly={true}>
+                <AdminDashboard />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/admin/clients"
+            element={
+              <PrivateRoute adminOnly={true}>
                 <ClientList />
               </PrivateRoute>
             }
           />
           <Route
-            path="/clients/new"
+            path="/admin/clients/:id"
             element={
-              <PrivateRoute>
-                <ClientForm />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/clients/:id"
-            element={
-              <PrivateRoute>
+              <PrivateRoute adminOnly={true}>
                 <ClientDetail />
               </PrivateRoute>
             }
           />
           <Route
-            path="/clients/:id/edit"
+            path="/admin/analytics"
             element={
-              <PrivateRoute>
-                <ClientForm />
+              <PrivateRoute adminOnly={true}>
+                <Analytics />
               </PrivateRoute>
             }
           />
 
           {/* Redirection par défaut */}
-          <Route path="/" element={<Navigate to="/clients" />} />
-          <Route path="*" element={<Navigate to="/clients" />} />
+          <Route path="/" element={<Navigate to="/login" />} />
+          <Route path="*" element={<Navigate to="/login" />} />
         </Routes>
       </Router>
     </ThemeProvider>
