@@ -12,6 +12,7 @@ import {
   CircularProgress,
   InputAdornment,
   IconButton,
+  Divider,
 } from '@mui/material';
 import { Visibility, VisibilityOff, Login as LoginIcon } from '@mui/icons-material';
 import authService from '../../services/authService';
@@ -41,17 +42,30 @@ const Login = () => {
 
     try {
       await authService.login(formData);
-      navigate('/clients');
+      
+      // Redirection selon le rôle
+      if (authService.isAdmin()) {
+        navigate('/admin/dashboard');
+      } else {
+        navigate('/client/dashboard');
+      }
     } catch (err) {
+      console.error('Erreur de connexion:', err);
       setError(
         err.email?.[0] ||
         err.password?.[0] ||
         err.non_field_errors?.[0] ||
+        err.detail ||
         'Email ou mot de passe incorrect'
       );
     } finally {
       setLoading(false);
     }
+  };
+
+  // Fonction pour remplir automatiquement les champs
+  const fillCredentials = (email, password) => {
+    setFormData({ email, password });
   };
 
   return (
@@ -139,6 +153,54 @@ const Login = () => {
               </Typography>
             </Box>
           </form>
+
+          <Divider sx={{ my: 3 }}>Comptes de test</Divider>
+
+          {/* Comptes de démonstration */}
+          <Box sx={{ mb: 2 }}>
+            <Paper
+              elevation={0}
+              sx={{
+                p: 2,
+                bgcolor: '#e3f2fd',
+                cursor: 'pointer',
+                '&:hover': { bgcolor: '#bbdefb' },
+                mb: 1,
+              }}
+              onClick={() => fillCredentials('admin@bankrisk.com', 'admin123')}
+            >
+              <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                👨‍💼 Compte Administrateur
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                admin@bankrisk.com / admin123
+              </Typography>
+            </Paper>
+
+            <Paper
+              elevation={0}
+              sx={{
+                p: 2,
+                bgcolor: '#f3e5f5',
+                cursor: 'pointer',
+                '&:hover': { bgcolor: '#e1bee7' },
+              }}
+              onClick={() => fillCredentials('client@bankrisk.com', 'client123')}
+            >
+              <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: 'secondary.main' }}>
+                👤 Compte Client
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                client@bankrisk.com / client123
+              </Typography>
+            </Paper>
+          </Box>
+
+          <Alert severity="info" sx={{ mt: 2 }}>
+            <Typography variant="caption">
+              💡 Cliquez sur un compte de test pour remplir automatiquement les champs
+            </Typography>
+          </Alert>
         </Paper>
       </Box>
     </Container>

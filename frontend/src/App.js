@@ -1,6 +1,6 @@
 // src/App.js
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 
@@ -13,7 +13,6 @@ import CreditApplication from './components/client/CreditApplication';
 import AdminDashboard from './components/admin/AdminDashboard';
 import ClientList from './components/admin/ClientList';
 import ClientDetail from './components/admin/ClientDetail';
-import Analytics from './components/admin/Analytics';
 
 import authService from './services/authService';
 
@@ -40,6 +39,25 @@ const theme = createTheme({
   },
 });
 
+// Composant de redirection intelligente
+function SmartRedirect() {
+  const navigate = useNavigate();
+  
+  useEffect(() => {
+    if (authService.isAuthenticated()) {
+      if (authService.isAdmin()) {
+        navigate('/admin/dashboard');
+      } else {
+        navigate('/client/dashboard');
+      }
+    } else {
+      navigate('/login');
+    }
+  }, [navigate]);
+  
+  return null;
+}
+
 // Route protégée
 const PrivateRoute = ({ children, adminOnly = false }) => {
   const isAuthenticated = authService.isAuthenticated();
@@ -51,6 +69,11 @@ const PrivateRoute = ({ children, adminOnly = false }) => {
 
   if (adminOnly && !isAdmin) {
     return <Navigate to="/client/dashboard" />;
+  }
+
+  // Si un client essaie d'accéder aux routes admin
+  if (!adminOnly && isAdmin) {
+    return <Navigate to="/admin/dashboard" />;
   }
 
   return children;
@@ -117,18 +140,10 @@ function App() {
               </PrivateRoute>
             }
           />
-          <Route
-            path="/admin/analytics"
-            element={
-              <PrivateRoute adminOnly={true}>
-                <Analytics />
-              </PrivateRoute>
-            }
-          />
 
           {/* Redirection par défaut */}
-          <Route path="/" element={<Navigate to="/login" />} />
-          <Route path="*" element={<Navigate to="/login" />} />
+          <Route path="/" element={<SmartRedirect />} />
+          <Route path="*" element={<SmartRedirect />} />
         </Routes>
       </Router>
     </ThemeProvider>
