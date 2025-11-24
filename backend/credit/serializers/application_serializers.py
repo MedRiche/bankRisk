@@ -1,54 +1,58 @@
+# backend/credit/serializers/application_serializers.py
 from rest_framework import serializers
-from ..models.application import Application
-from ..models.property import Property
-from ..models.employment import Employment
+from credit.models.application import CreditApplication
 
-
-class PropertySerializer(serializers.Serializer):
-    property_type = serializers.CharField()
-    housing = serializers.CharField()
-    other_installment_plans = serializers.CharField()
-    liability_responsibles = serializers.IntegerField()
-
-
-class EmploymentSerializer(serializers.Serializer):
-    employment_status = serializers.CharField()
-    job_type = serializers.CharField()
-    existing_credits_no = serializers.IntegerField()
-
-
-class ApplicationSerializer(serializers.Serializer):
+class CreditApplicationSerializer(serializers.Serializer):
     id = serializers.CharField(read_only=True)
-    client = serializers.CharField()
-    purpose = serializers.CharField()
-    credit_history = serializers.CharField()
+    client = serializers.CharField()  # ID du client
+    credit_amount = serializers.FloatField(min_value=0)
+    duration = serializers.IntegerField(min_value=1)
+    purpose = serializers.ChoiceField(choices=[
+        'car',
+        'radio/TV',
+        'furniture/equipment',
+        'education',
+        'business',
+        'domestic appliances',
+        'repairs',
+        'vacation/others'
+    ])
+    risk = serializers.ChoiceField(
+        choices=['good', 'bad', 'pending'],
+        default='pending',
+        read_only=True
+    )
+    risk_score = serializers.FloatField(read_only=True, allow_null=True)
+    status = serializers.ChoiceField(
+        choices=['pending', 'approved', 'rejected'],
+        default='pending'
+    )
     submission_date = serializers.DateTimeField(read_only=True)
-
-    # Données imbriquées (création seulement)
-    property_data = PropertySerializer(write_only=True)
-    employment_data = EmploymentSerializer(write_only=True)
-
+    evaluation_date = serializers.DateTimeField(read_only=True, allow_null=True)
+    evaluator_comment = serializers.CharField(required=False, allow_blank=True)
+    
     def create(self, validated_data):
-        # Extraire les sous-documents
-        property_data = validated_data.pop('property_data')
-        employment_data = validated_data.pop('employment_data')
-
-        # Créer l’application
-        application = Application(**validated_data)
+        application = CreditApplication(**validated_data)
         application.save()
-
-        # Créer la propriété et l’emploi liés au même client
-        Property(client=application.client, **property_data).save()
-        Employment(client=application.client, **employment_data).save()
-
         return application
-
+    
+    def update(self, instance, validated_data):
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        return instance
+    
     def to_representation(self, instance):
-        """Personnalise la réponse JSON renvoyée"""
         return {
             'id': str(instance.id),
             'client': str(instance.client.id) if instance.client else None,
+            'credit_amount': instance.credit_amount,
+            'duration': instance.duration,
             'purpose': instance.purpose,
-            'credit_history': instance.credit_history,
+            'risk': instance.risk,
+            'risk_score': instance.risk_score,
+            'status': instance.status,
             'submission_date': instance.submission_date.isoformat() if instance.submission_date else None,
+            'evaluation_date': instance.evaluation_date.isoformat() if instance.evaluation_date else None,
+            'evaluator_comment': instance.evaluator_comment or '',
         }

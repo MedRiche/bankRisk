@@ -1,85 +1,46 @@
-# credit/serializers/client_serializer.py
+# backend/credit/serializers/client_serializers.py
 from rest_framework import serializers
 from credit.models.client import Client
-from credit.models.employment import Employment
-from credit.models.financial import Financial
-from credit.models.property import Property
-from credit.serializers.application_serializers import ApplicationSerializer
-
-
-class EmploymentSerializer(serializers.Serializer):
-    employment_status = serializers.CharField()
-    job_type = serializers.CharField()
-    existing_credits_no = serializers.IntegerField()
-    client = serializers.CharField()
-
-
-class FinancialSerializer(serializers.Serializer):
-    checking_account_status = serializers.CharField()
-    savings_account_bonds = serializers.CharField()
-    credit_amount = serializers.FloatField()
-    duration_in_month = serializers.IntegerField()
-    installment = serializers.IntegerField()
-    other_debtors = serializers.CharField()
-    client = serializers.CharField()
-
-
-class PropertySerializer(serializers.Serializer):
-    property_type = serializers.CharField()
-    housing = serializers.CharField()
-    other_installment_plans = serializers.CharField()
-    liability_responsibles = serializers.IntegerField()
-    client = serializers.CharField()
-
 
 class ClientSerializer(serializers.Serializer):
     id = serializers.CharField(read_only=True)
-    name = serializers.CharField()
-    sex_status = serializers.CharField()
-    age_in_years = serializers.IntegerField()
-    telephone = serializers.CharField()
-    foreign_worker = serializers.CharField()
+    user_email = serializers.EmailField(required=False, allow_blank=True)
+    age = serializers.IntegerField(min_value=18, max_value=100)
+    sex = serializers.ChoiceField(choices=['male', 'female'])
+    job = serializers.IntegerField(min_value=0, max_value=3)
+    housing = serializers.ChoiceField(choices=['own', 'rent', 'free'])
+    saving_accounts = serializers.ChoiceField(
+        choices=['little', 'moderate', 'quite rich', 'rich', 'NA'],
+        default='NA'
+    )
+    checking_account = serializers.ChoiceField(
+        choices=['little', 'moderate', 'rich', 'NA'],
+        default='NA'
+    )
     created_at = serializers.DateTimeField(read_only=True)
-
-    # Relations imbriquées
-    employment = EmploymentSerializer(read_only=True)
-    financial = FinancialSerializer(read_only=True)
-    property = PropertySerializer(read_only=True)
-    applications = ApplicationSerializer(many=True, read_only=True)
-
+    updated_at = serializers.DateTimeField(read_only=True)
+    
+    def create(self, validated_data):
+        client = Client(**validated_data)
+        client.save()
+        return client
+    
+    def update(self, instance, validated_data):
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        return instance
+    
     def to_representation(self, instance):
-        """Personnalise la sortie JSON pour MongoEngine"""
-        data = {
-            "id": str(instance.id),
-            "name": instance.name,
-            "sex_status": instance.sex_status,
-            "age_in_years": instance.age_in_years,
-            "telephone": instance.telephone,
-            "foreign_worker": instance.foreign_worker,
-            "created_at": instance.created_at.isoformat() if instance.created_at else None,
-            "employment": None,
-            "financial": None,
-            "property": None,
-            "applications": []
+        return {
+            'id': str(instance.id),
+            'user_email': instance.user_email or '',
+            'age': instance.age,
+            'sex': instance.sex,
+            'job': instance.job,
+            'housing': instance.housing,
+            'saving_accounts': instance.saving_accounts,
+            'checking_account': instance.checking_account,
+            'created_at': instance.created_at.isoformat() if instance.created_at else None,
+            'updated_at': instance.updated_at.isoformat() if instance.updated_at else None,
         }
-
-        # Employment lié
-        emp = Employment.objects(client=instance).first()
-        if emp:
-            data['employment'] = EmploymentSerializer(emp).data
-
-        # Financial lié
-        fin = Financial.objects(client=instance).first()
-        if fin:
-            data['financial'] = FinancialSerializer(fin).data
-
-        # Property lié
-        prop = Property.objects(client=instance).first()
-        if prop:
-            data['property'] = PropertySerializer(prop).data
-
-        # Applications liées
-        apps = instance.applications if hasattr(instance, 'applications') else []
-        data['applications'] = [ApplicationSerializer(a).data for a in apps]
-
-        return data

@@ -39,33 +39,15 @@ const ClientProfile = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [clientId, setClientId] = useState(null);
 
   const [profile, setProfile] = useState({
-    // Informations personnelles
-    name: '',
-    sex_status: 'A91',
-    age_in_years: '',
-    telephone: 'A192',
-    foreign_worker: 'A202',
-    
-    // Informations financières
-    checking_account_status: 'A14',
-    savings_account_bonds: 'A65',
-    credit_amount: '',
-    duration_in_month: '',
-    installment: '',
-    other_debtors: 'A103',
-    
-    // Informations d'emploi
-    employment_status: 'A75',
-    job_type: 'A173',
-    existing_credits_no: 0,
-    
-    // Informations de propriété
-    property_type: 'A124',
-    housing: 'A153',
-    other_installment_plans: 'A143',
-    liability_responsibles: 1,
+    age: '',
+    sex: 'male',
+    job: 2,
+    housing: 'rent',
+    saving_accounts: 'NA',
+    checking_account: 'NA',
   });
 
   useEffect(() => {
@@ -80,15 +62,18 @@ const ClientProfile = () => {
       
       if (clientData) {
         setProfile({
-          ...profile,
-          ...clientData,
-          ...clientData.financial,
-          ...clientData.employment,
-          ...clientData.property,
+          age: clientData.age || '',
+          sex: clientData.sex || 'male',
+          job: clientData.job || 2,
+          housing: clientData.housing || 'rent',
+          saving_accounts: clientData.saving_accounts || 'NA',
+          checking_account: clientData.checking_account || 'NA',
         });
+        setClientId(clientData.id);
       }
     } catch (err) {
       console.error('Erreur:', err);
+      setError('Erreur lors du chargement du profil');
     } finally {
       setLoading(false);
     }
@@ -106,44 +91,22 @@ const ClientProfile = () => {
       setSaving(true);
       setError('');
       
-      // Préparer les données pour l'API
-      const clientData = {
-        name: profile.name,
-        sex_status: profile.sex_status,
-        age_in_years: parseInt(profile.age_in_years),
-        telephone: profile.telephone,
-        foreign_worker: profile.foreign_worker,
-      };
-
-      const financialData = {
-        checking_account_status: profile.checking_account_status,
-        savings_account_bonds: profile.savings_account_bonds,
-        credit_amount: parseFloat(profile.credit_amount),
-        duration_in_month: parseInt(profile.duration_in_month),
-        installment: parseInt(profile.installment),
-        other_debtors: profile.other_debtors,
-      };
-
-      const employmentData = {
-        employment_status: profile.employment_status,
-        job_type: profile.job_type,
-        existing_credits_no: parseInt(profile.existing_credits_no),
-      };
-
-      const propertyData = {
-        property_type: profile.property_type,
+      const profileData = {
+        user_email: authService.getCurrentUser(),
+        age: parseInt(profile.age),
+        sex: profile.sex,
+        job: parseInt(profile.job),
         housing: profile.housing,
-        other_installment_plans: profile.other_installment_plans,
-        liability_responsibles: parseInt(profile.liability_responsibles),
+        saving_accounts: profile.saving_accounts,
+        checking_account: profile.checking_account,
       };
 
-      // Appeler l'API pour sauvegarder
-      await clientService.updateClientProfile({
-        client: clientData,
-        financial: financialData,
-        employment: employmentData,
-        property: propertyData,
-      });
+      if (clientId) {
+        await clientService.updateClient(clientId, profileData);
+      } else {
+        const newClient = await clientService.createClient(profileData);
+        setClientId(newClient.id);
+      }
 
       setSuccess('Profil mis à jour avec succès !');
       setEditMode(false);
@@ -151,9 +114,20 @@ const ClientProfile = () => {
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       setError('Erreur lors de la mise à jour du profil');
+      console.error(err);
     } finally {
       setSaving(false);
     }
+  };
+
+  const getJobLabel = (job) => {
+    const labels = {
+      0: 'Chômeur / Non qualifié',
+      1: 'Non qualifié résident',
+      2: 'Employé qualifié / Fonctionnaire',
+      3: 'Cadre / Hautement qualifié',
+    };
+    return labels[job] || job;
   };
 
   if (loading) {
@@ -228,15 +202,15 @@ const ClientProfile = () => {
               width: 100,
               height: 100,
               margin: '0 auto',
-              bgcolor: 'primary.main',
+              bgcolor: profile.sex === 'male' ? 'primary.main' : 'secondary.main',
               fontSize: '2.5rem',
               mb: 2,
             }}
           >
-            {profile.name?.charAt(0).toUpperCase() || 'U'}
+            {authService.getCurrentUser()?.charAt(0).toUpperCase() || 'U'}
           </Avatar>
           <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 1 }}>
-            {profile.name || 'Nom non défini'}
+            {authService.getCurrentUserFullName()}
           </Typography>
           <Typography variant="body2" color="text.secondary">
             {authService.getCurrentUser()}
@@ -260,44 +234,15 @@ const ClientProfile = () => {
                   <Grid item xs={12} md={6}>
                     <TextField
                       fullWidth
-                      label="Nom complet"
-                      name="name"
-                      value={profile.name}
-                      onChange={handleChange}
-                      disabled={!editMode}
-                      required
-                    />
-                  </Grid>
-
-                  <Grid item xs={12} md={6}>
-                    <TextField
-                      fullWidth
-                      select
-                      label="Statut"
-                      name="sex_status"
-                      value={profile.sex_status}
-                      onChange={handleChange}
-                      disabled={!editMode}
-                      required
-                    >
-                      <MenuItem value="A91">Homme célibataire</MenuItem>
-                      <MenuItem value="A92">Femme célibataire</MenuItem>
-                      <MenuItem value="A93">Homme marié/veuf</MenuItem>
-                      <MenuItem value="A94">Femme mariée/veuve</MenuItem>
-                    </TextField>
-                  </Grid>
-
-                  <Grid item xs={12} md={6}>
-                    <TextField
-                      fullWidth
                       label="Âge"
-                      name="age_in_years"
+                      name="age"
                       type="number"
-                      value={profile.age_in_years}
+                      value={profile.age}
                       onChange={handleChange}
                       disabled={!editMode}
                       required
                       inputProps={{ min: 18, max: 100 }}
+                      helperText="Entre 18 et 100 ans"
                     />
                   </Grid>
 
@@ -305,29 +250,15 @@ const ClientProfile = () => {
                     <TextField
                       fullWidth
                       select
-                      label="Téléphone"
-                      name="telephone"
-                      value={profile.telephone}
+                      label="Sexe"
+                      name="sex"
+                      value={profile.sex}
                       onChange={handleChange}
                       disabled={!editMode}
+                      required
                     >
-                      <MenuItem value="A191">Oui</MenuItem>
-                      <MenuItem value="A192">Non</MenuItem>
-                    </TextField>
-                  </Grid>
-
-                  <Grid item xs={12} md={6}>
-                    <TextField
-                      fullWidth
-                      select
-                      label="Travailleur étranger"
-                      name="foreign_worker"
-                      value={profile.foreign_worker}
-                      onChange={handleChange}
-                      disabled={!editMode}
-                    >
-                      <MenuItem value="A201">Oui</MenuItem>
-                      <MenuItem value="A202">Non</MenuItem>
+                      <MenuItem value="male">Homme</MenuItem>
+                      <MenuItem value="female">Femme</MenuItem>
                     </TextField>
                   </Grid>
                 </Grid>
@@ -335,65 +266,79 @@ const ClientProfile = () => {
             </Card>
           </Grid>
 
-          {/* Informations d'Emploi */}
+          {/* Informations Professionnelles */}
           <Grid item xs={12}>
             <Card elevation={0} sx={{ borderRadius: 3 }}>
               <CardContent sx={{ p: 4 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
                   <Work sx={{ mr: 1, color: 'secondary.main' }} />
                   <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-                    Informations d'Emploi
+                    Informations Professionnelles
                   </Typography>
                 </Box>
                 <Divider sx={{ mb: 3 }} />
 
                 <Grid container spacing={3}>
-                  <Grid item xs={12} md={4}>
+                  <Grid item xs={12}>
                     <TextField
                       fullWidth
                       select
-                      label="Statut d'emploi"
-                      name="employment_status"
-                      value={profile.employment_status}
+                      label="Niveau d'emploi"
+                      name="job"
+                      value={profile.job}
                       onChange={handleChange}
                       disabled={!editMode}
+                      required
                     >
-                      <MenuItem value="A71">Chômeur</MenuItem>
-                      <MenuItem value="A72">{'< 1 an'}</MenuItem>
-                      <MenuItem value="A73">1-4 ans</MenuItem>
-                      <MenuItem value="A74">4-7 ans</MenuItem>
-                      <MenuItem value="A75">{'>= 7 ans'}</MenuItem>
+                      <MenuItem value={0}>0 - Chômeur / Non qualifié non-résident</MenuItem>
+                      <MenuItem value={1}>1 - Non qualifié résident</MenuItem>
+                      <MenuItem value={2}>2 - Employé qualifié / Fonctionnaire</MenuItem>
+                      <MenuItem value={3}>3 - Cadre / Hautement qualifié</MenuItem>
                     </TextField>
                   </Grid>
 
-                  <Grid item xs={12} md={4}>
+                  {!editMode && (
+                    <Grid item xs={12}>
+                      <Alert severity="info">
+                        <Typography variant="body2">
+                          <strong>Votre niveau :</strong> {getJobLabel(profile.job)}
+                        </Typography>
+                      </Alert>
+                    </Grid>
+                  )}
+                </Grid>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* Informations de Logement */}
+          <Grid item xs={12}>
+            <Card elevation={0} sx={{ borderRadius: 3 }}>
+              <CardContent sx={{ p: 4 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+                  <Home sx={{ mr: 1, color: 'warning.main' }} />
+                  <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                    Informations de Logement
+                  </Typography>
+                </Box>
+                <Divider sx={{ mb: 3 }} />
+
+                <Grid container spacing={3}>
+                  <Grid item xs={12}>
                     <TextField
                       fullWidth
                       select
-                      label="Type de poste"
-                      name="job_type"
-                      value={profile.job_type}
+                      label="Type de logement"
+                      name="housing"
+                      value={profile.housing}
                       onChange={handleChange}
                       disabled={!editMode}
+                      required
                     >
-                      <MenuItem value="A171">Non qualifié</MenuItem>
-                      <MenuItem value="A172">Qualifié</MenuItem>
-                      <MenuItem value="A173">Cadre</MenuItem>
-                      <MenuItem value="A174">Indépendant</MenuItem>
+                      <MenuItem value="own">Propriétaire</MenuItem>
+                      <MenuItem value="rent">Locataire</MenuItem>
+                      <MenuItem value="free">Gratuit (famille/amis)</MenuItem>
                     </TextField>
-                  </Grid>
-
-                  <Grid item xs={12} md={4}>
-                    <TextField
-                      fullWidth
-                      label="Crédits existants"
-                      name="existing_credits_no"
-                      type="number"
-                      value={profile.existing_credits_no}
-                      onChange={handleChange}
-                      disabled={!editMode}
-                      inputProps={{ min: 0 }}
-                    />
                   </Grid>
                 </Grid>
               </CardContent>
@@ -417,89 +362,34 @@ const ClientProfile = () => {
                     <TextField
                       fullWidth
                       select
+                      label="Compte épargne"
+                      name="saving_accounts"
+                      value={profile.saving_accounts}
+                      onChange={handleChange}
+                      disabled={!editMode}
+                    >
+                      <MenuItem value="NA">Non renseigné</MenuItem>
+                      <MenuItem value="little">Peu (100 DM)</MenuItem>
+                      <MenuItem value="moderate">Moyen (100-500 DM)</MenuItem>
+                      <MenuItem value="quite rich">Assez riche (500-1000 DM)</MenuItem>
+                      <MenuItem value="rich">Riche ( 1000 DM)</MenuItem>
+                    </TextField>
+                  </Grid>
+
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      fullWidth
+                      select
                       label="Compte courant"
-                      name="checking_account_status"
-                      value={profile.checking_account_status}
+                      name="checking_account"
+                      value={profile.checking_account}
                       onChange={handleChange}
                       disabled={!editMode}
                     >
-                      <MenuItem value="A11">{'< 0 DM'}</MenuItem>
-                      <MenuItem value="A12">0-200 DM</MenuItem>
-                      <MenuItem value="A13">{'>= 200 DM'}</MenuItem>
-                      <MenuItem value="A14">Pas de compte</MenuItem>
-                    </TextField>
-                  </Grid>
-
-                  <Grid item xs={12} md={6}>
-                    <TextField
-                      fullWidth
-                      select
-                      label="Épargne/Obligations"
-                      name="savings_account_bonds"
-                      value={profile.savings_account_bonds}
-                      onChange={handleChange}
-                      disabled={!editMode}
-                    >
-                      <MenuItem value="A61">{'< 100 DM'}</MenuItem>
-                      <MenuItem value="A62">100-500 DM</MenuItem>
-                      <MenuItem value="A63">500-1000 DM</MenuItem>
-                      <MenuItem value="A64">{'>= 1000 DM'}</MenuItem>
-                      <MenuItem value="A65">Inconnu</MenuItem>
-                    </TextField>
-                  </Grid>
-
-                  <Grid item xs={12} md={6}>
-                    <TextField
-                      fullWidth
-                      label="Montant du crédit (€)"
-                      name="credit_amount"
-                      type="number"
-                      value={profile.credit_amount}
-                      onChange={handleChange}
-                      disabled={!editMode}
-                      inputProps={{ min: 0 }}
-                    />
-                  </Grid>
-
-                  <Grid item xs={12} md={6}>
-                    <TextField
-                      fullWidth
-                      label="Durée (mois)"
-                      name="duration_in_month"
-                      type="number"
-                      value={profile.duration_in_month}
-                      onChange={handleChange}
-                      disabled={!editMode}
-                      inputProps={{ min: 1 }}
-                    />
-                  </Grid>
-
-                  <Grid item xs={12} md={6}>
-                    <TextField
-                      fullWidth
-                      label="Versement (%)"
-                      name="installment"
-                      type="number"
-                      value={profile.installment}
-                      onChange={handleChange}
-                      disabled={!editMode}
-                      inputProps={{ min: 1, max: 4 }}
-                    />
-                  </Grid>
-
-                  <Grid item xs={12} md={6}>
-                    <TextField
-                      fullWidth
-                      select
-                      label="Autres débiteurs"
-                      name="other_debtors"
-                      value={profile.other_debtors}
-                      onChange={handleChange}
-                      disabled={!editMode}
-                    >
-                      <MenuItem value="A101">Aucun</MenuItem>
-                      <MenuItem value="A102">Co-emprunteur</MenuItem>
-                      <MenuItem value="A103">Garant</MenuItem>
+                      <MenuItem value="NA">Non renseigné</MenuItem>
+                      <MenuItem value="little">Peu ( 200 DM)</MenuItem>
+                      <MenuItem value="moderate">Moyen (200-1000 DM)</MenuItem>
+                      <MenuItem value="rich">Riche (1000 DM)</MenuItem>
                     </TextField>
                   </Grid>
                 </Grid>
@@ -507,83 +397,14 @@ const ClientProfile = () => {
             </Card>
           </Grid>
 
-          {/* Informations de Propriété */}
+          {/* Conseils */}
           <Grid item xs={12}>
-            <Card elevation={0} sx={{ borderRadius: 3 }}>
-              <CardContent sx={{ p: 4 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-                  <Home sx={{ mr: 1, color: 'warning.main' }} />
-                  <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-                    Informations de Propriété
-                  </Typography>
-                </Box>
-                <Divider sx={{ mb: 3 }} />
-
-                <Grid container spacing={3}>
-                  <Grid item xs={12} md={6}>
-                    <TextField
-                      fullWidth
-                      select
-                      label="Type de propriété"
-                      name="property_type"
-                      value={profile.property_type}
-                      onChange={handleChange}
-                      disabled={!editMode}
-                    >
-                      <MenuItem value="A121">Immobilier</MenuItem>
-                      <MenuItem value="A122">Assurance vie</MenuItem>
-                      <MenuItem value="A123">Voiture</MenuItem>
-                      <MenuItem value="A124">Inconnu</MenuItem>
-                    </TextField>
-                  </Grid>
-
-                  <Grid item xs={12} md={6}>
-                    <TextField
-                      fullWidth
-                      select
-                      label="Logement"
-                      name="housing"
-                      value={profile.housing}
-                      onChange={handleChange}
-                      disabled={!editMode}
-                    >
-                      <MenuItem value="A151">Locataire</MenuItem>
-                      <MenuItem value="A152">Propriétaire</MenuItem>
-                      <MenuItem value="A153">Gratuit</MenuItem>
-                    </TextField>
-                  </Grid>
-
-                  <Grid item xs={12} md={6}>
-                    <TextField
-                      fullWidth
-                      select
-                      label="Autres plans de versement"
-                      name="other_installment_plans"
-                      value={profile.other_installment_plans}
-                      onChange={handleChange}
-                      disabled={!editMode}
-                    >
-                      <MenuItem value="A141">Banque</MenuItem>
-                      <MenuItem value="A142">Magasins</MenuItem>
-                      <MenuItem value="A143">Aucun</MenuItem>
-                    </TextField>
-                  </Grid>
-
-                  <Grid item xs={12} md={6}>
-                    <TextField
-                      fullWidth
-                      label="Personnes à charge"
-                      name="liability_responsibles"
-                      type="number"
-                      value={profile.liability_responsibles}
-                      onChange={handleChange}
-                      disabled={!editMode}
-                      inputProps={{ min: 1, max: 2 }}
-                    />
-                  </Grid>
-                </Grid>
-              </CardContent>
-            </Card>
+            <Alert severity="info">
+              <Typography variant="body2">
+                💡 <strong>Conseil :</strong> Un profil complet et à jour améliore vos chances d'obtenir un crédit. 
+                Les comptes épargne et courant bien garnis sont des atouts pour votre demande.
+              </Typography>
+            </Alert>
           </Grid>
         </Grid>
       </Container>

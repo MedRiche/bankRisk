@@ -1,4 +1,4 @@
-// src/services/clientService.js
+// frontend/src/services/clientService.js
 import api from './api';
 
 const clientService = {
@@ -27,9 +27,13 @@ const clientService = {
   // Récupérer un client par email
   getClientByEmail: async (email) => {
     try {
-      const response = await api.get(`/clients/?email=${email}`);
-      return response.data[0] || null;
+      const response = await api.get(`/clients/by_email/?email=${email}`);
+      return response.data;
     } catch (error) {
+      // Retourner null si le client n'existe pas
+      if (error.response?.status === 404) {
+        return null;
+      }
       throw error.response?.data || error.message;
     }
   },
@@ -63,173 +67,7 @@ const clientService = {
     }
   },
 
-  // ============ PROFIL CLIENT ============
-
-  // Mettre à jour le profil complet du client
-  updateClientProfile: async (profileData) => {
-    try {
-      // Cette méthode combine la mise à jour du client et de ses informations liées
-      const clientResponse = await api.put(`/clients/${profileData.client.id}/`, profileData.client);
-      
-      if (profileData.financial) {
-        await api.post('/financials/', { ...profileData.financial, client: clientResponse.data.id });
-      }
-      
-      if (profileData.employment) {
-        await api.post('/employments/', { ...profileData.employment, client: clientResponse.data.id });
-      }
-      
-      if (profileData.property) {
-        await api.post('/properties/', { ...profileData.property, client: clientResponse.data.id });
-      }
-
-      return clientResponse.data;
-    } catch (error) {
-      throw error.response?.data || error.message;
-    }
-  },
-
-  // ============ INFORMATIONS FINANCIÈRES ============
-
-  // Créer des informations financières
-  createFinancial: async (financialData) => {
-    try {
-      const response = await api.post('/financials/', financialData);
-      return response.data;
-    } catch (error) {
-      throw error.response?.data || error.message;
-    }
-  },
-
-  // Mettre à jour des informations financières
-  updateFinancial: async (id, financialData) => {
-    try {
-      const response = await api.put(`/financials/${id}/`, financialData);
-      return response.data;
-    } catch (error) {
-      throw error.response?.data || error.message;
-    }
-  },
-
-  // ============ INFORMATIONS D'EMPLOI ============
-
-  // Créer des informations d'emploi
-  createEmployment: async (employmentData) => {
-    try {
-      const response = await api.post('/employments/', employmentData);
-      return response.data;
-    } catch (error) {
-      throw error.response?.data || error.message;
-    }
-  },
-
-  // Mettre à jour des informations d'emploi
-  updateEmployment: async (id, employmentData) => {
-    try {
-      const response = await api.put(`/employments/${id}/`, employmentData);
-      return response.data;
-    } catch (error) {
-      throw error.response?.data || error.message;
-    }
-  },
-
-  // ============ INFORMATIONS DE PROPRIÉTÉ ============
-
-  // Créer des informations de propriété
-  createProperty: async (propertyData) => {
-    try {
-      const response = await api.post('/properties/', propertyData);
-      return response.data;
-    } catch (error) {
-      throw error.response?.data || error.message;
-    }
-  },
-
-  // Mettre à jour des informations de propriété
-  updateProperty: async (id, propertyData) => {
-    try {
-      const response = await api.put(`/properties/${id}/`, propertyData);
-      return response.data;
-    } catch (error) {
-      throw error.response?.data || error.message;
-    }
-  },
-
   // ============ DEMANDES DE CRÉDIT ============
-
-  // Soumettre une nouvelle demande de crédit
-  submitCreditApplication: async (applicationData) => {
-    try {
-      // 1. Créer ou récupérer le client
-      const userEmail = localStorage.getItem('user_email');
-      let clientResponse = await api.get(`/clients/?email=${userEmail}`);
-      
-      let clientId;
-      if (clientResponse.data.length === 0) {
-        // Créer un nouveau client si nécessaire
-        const newClient = await api.post('/clients/', {
-          name: userEmail.split('@')[0],
-          email: userEmail,
-          age_in_years: 30, // Valeur par défaut, à ajuster
-          sex_status: 'A91',
-          telephone: 'A192',
-          foreign_worker: 'A202',
-        });
-        clientId = newClient.data.id;
-      } else {
-        clientId = clientResponse.data[0].id;
-      }
-
-      // 2. Créer les informations financières
-      await api.post('/financials/', {
-        client: clientId,
-        checking_account_status: applicationData.checking_account_status,
-        savings_account_bonds: applicationData.savings_account_bonds,
-        credit_amount: applicationData.credit_amount,
-        duration_in_month: applicationData.duration_in_month,
-        installment: applicationData.installment,
-        other_debtors: applicationData.other_debtors,
-      });
-
-      // 3. Créer les informations d'emploi
-      await api.post('/employments/', {
-        client: clientId,
-        employment_status: applicationData.employment_status,
-        job_type: applicationData.job_type,
-        existing_credits_no: 0,
-      });
-
-      // 4. Créer les informations de propriété
-      await api.post('/properties/', {
-        client: clientId,
-        property_type: applicationData.property_type,
-        housing: applicationData.housing,
-        other_installment_plans: 'A143',
-        liability_responsibles: 1,
-      });
-
-      // 5. Créer la demande de crédit
-      const applicationResponse = await api.post('/applications/', {
-        client: clientId,
-        purpose: applicationData.purpose,
-        credit_history: applicationData.credit_history,
-      });
-
-      return applicationResponse.data;
-    } catch (error) {
-      throw error.response?.data || error.message;
-    }
-  },
-
-  // Créer une application de crédit
-  createApplication: async (applicationData) => {
-    try {
-      const response = await api.post('/applications/', applicationData);
-      return response.data;
-    } catch (error) {
-      throw error.response?.data || error.message;
-    }
-  },
 
   // Récupérer toutes les applications
   getAllApplications: async () => {
@@ -251,33 +89,66 @@ const clientService = {
     }
   },
 
-  // ============ SCORING ============
-
-  // Créer un scoring
-  createScoring: async (scoringData) => {
+  // Récupérer les applications d'un client
+  getApplicationsByClient: async (clientId) => {
     try {
-      const response = await api.post('/scorings/', scoringData);
+      const response = await api.get(`/applications/by_client/?client_id=${clientId}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
     }
   },
 
-  // Récupérer tous les scorings
-  getAllScorings: async () => {
+  // Soumettre une nouvelle demande de crédit
+  submitCreditApplication: async (applicationData) => {
     try {
-      const response = await api.get('/scorings/');
+      const response = await api.post('/applications/', applicationData);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
     }
   },
 
-  // Récupérer un scoring par ID d'application
-  getScoringByApplicationId: async (applicationId) => {
+  // Évaluer une demande (Admin)
+  evaluateApplication: async (id, evaluationData) => {
     try {
-      const response = await api.get(`/scorings/?application=${applicationId}`);
-      return response.data[0] || null;
+      const response = await api.post(`/applications/${id}/evaluate/`, evaluationData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Supprimer une application
+  deleteApplication: async (id) => {
+    try {
+      await api.delete(`/applications/${id}/`);
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // ============ STATISTIQUES (pour Admin) ============
+
+  // Obtenir les statistiques du dashboard
+  getDashboardStats: async () => {
+    try {
+      const [clients, applications] = await Promise.all([
+        api.get('/clients/'),
+        api.get('/applications/')
+      ]);
+
+      const apps = applications.data;
+      
+      return {
+        totalClients: clients.data.length,
+        totalApplications: apps.length,
+        approved: apps.filter(app => app.status === 'approved').length,
+        pending: apps.filter(app => app.status === 'pending').length,
+        rejected: apps.filter(app => app.status === 'rejected').length,
+        riskGood: apps.filter(app => app.risk === 'good').length,
+        riskBad: apps.filter(app => app.risk === 'bad').length,
+      };
     } catch (error) {
       throw error.response?.data || error.message;
     }
