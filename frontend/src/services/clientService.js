@@ -7,7 +7,7 @@ const clientService = {
   // Récupérer tous les clients
   getAllClients: async () => {
     try {
-      const response = await api.get('/clients/');
+      const response = await api.get('/api/clients/');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -17,7 +17,7 @@ const clientService = {
   // Récupérer un client par ID
   getClientById: async (id) => {
     try {
-      const response = await api.get(`/clients/${id}/`);
+      const response = await api.get(`/api/clients/${id}/`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -27,7 +27,7 @@ const clientService = {
   // Récupérer un client par email
   getClientByEmail: async (email) => {
     try {
-      const response = await api.get(`/clients/by_email/?email=${email}`);
+      const response = await api.get(`/api/clients/by_email/?email=${email}`);
       return response.data;
     } catch (error) {
       // Retourner null si le client n'existe pas
@@ -41,7 +41,7 @@ const clientService = {
   // Créer un nouveau client
   createClient: async (clientData) => {
     try {
-      const response = await api.post('/clients/', clientData);
+      const response = await api.post('/api/clients/', clientData);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -51,7 +51,7 @@ const clientService = {
   // Mettre à jour un client
   updateClient: async (id, clientData) => {
     try {
-      const response = await api.put(`/clients/${id}/`, clientData);
+      const response = await api.put(`/api/clients/${id}/`, clientData);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -61,7 +61,7 @@ const clientService = {
   // Supprimer un client
   deleteClient: async (id) => {
     try {
-      await api.delete(`/clients/${id}/`);
+      await api.delete(`/api/clients/${id}/`);
     } catch (error) {
       throw error.response?.data || error.message;
     }
@@ -72,7 +72,7 @@ const clientService = {
   // Récupérer toutes les applications
   getAllApplications: async () => {
     try {
-      const response = await api.get('/applications/');
+      const response = await api.get('/api/applications/');
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -82,7 +82,7 @@ const clientService = {
   // Récupérer une application par ID
   getApplicationById: async (id) => {
     try {
-      const response = await api.get(`/applications/${id}/`);
+      const response = await api.get(`/api/applications/${id}/`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -92,8 +92,24 @@ const clientService = {
   // Récupérer les applications d'un client
   getApplicationsByClient: async (clientId) => {
     try {
-      const response = await api.get(`/applications/by_client/?client_id=${clientId}`);
+      const response = await api.get(`/api/applications/by_client/?client_id=${clientId}`);
       return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Récupérer les applications par email utilisateur
+  getApplicationsByUserEmail: async (userEmail) => {
+    try {
+      // D'abord récupérer le client par email
+      const client = await clientService.getClientByEmail(userEmail);
+      if (!client) {
+        return [];
+      }
+      // Puis récupérer ses applications
+      const applications = await clientService.getApplicationsByClient(client.id);
+      return applications;
     } catch (error) {
       throw error.response?.data || error.message;
     }
@@ -102,7 +118,7 @@ const clientService = {
   // Soumettre une nouvelle demande de crédit
   submitCreditApplication: async (applicationData) => {
     try {
-      const response = await api.post('/applications/', applicationData);
+      const response = await api.post('/api/applications/', applicationData);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -112,7 +128,7 @@ const clientService = {
   // Évaluer une demande (Admin)
   evaluateApplication: async (id, evaluationData) => {
     try {
-      const response = await api.post(`/applications/${id}/evaluate/`, evaluationData);
+      const response = await api.post(`/api/applications/${id}/evaluate/`, evaluationData);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -122,7 +138,7 @@ const clientService = {
   // Supprimer une application
   deleteApplication: async (id) => {
     try {
-      await api.delete(`/applications/${id}/`);
+      await api.delete(`/api/applications/${id}/`);
     } catch (error) {
       throw error.response?.data || error.message;
     }
@@ -134,20 +150,18 @@ const clientService = {
   getDashboardStats: async () => {
     try {
       const [clients, applications] = await Promise.all([
-        api.get('/clients/'),
-        api.get('/applications/')
+        clientService.getAllClients(),
+        clientService.getAllApplications()
       ]);
 
-      const apps = applications.data;
-      
       return {
-        totalClients: clients.data.length,
-        totalApplications: apps.length,
-        approved: apps.filter(app => app.status === 'approved').length,
-        pending: apps.filter(app => app.status === 'pending').length,
-        rejected: apps.filter(app => app.status === 'rejected').length,
-        riskGood: apps.filter(app => app.risk === 'good').length,
-        riskBad: apps.filter(app => app.risk === 'bad').length,
+        totalClients: clients.length,
+        totalApplications: applications.length,
+        approved: applications.filter(app => app.status === 'approved').length,
+        pending: applications.filter(app => app.status === 'pending').length,
+        rejected: applications.filter(app => app.status === 'rejected').length,
+        riskGood: applications.filter(app => app.risk === 'good').length,
+        riskBad: applications.filter(app => app.risk === 'bad').length,
       };
     } catch (error) {
       throw error.response?.data || error.message;

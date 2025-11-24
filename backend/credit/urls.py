@@ -8,6 +8,7 @@ router = DefaultRouter()
 router.register(r'clients', ClientViewSet, basename='client')
 router.register(r'applications', CreditApplicationViewSet, basename='application')
 
+
 urlpatterns = [
     path('', include(router.urls)),
 ]

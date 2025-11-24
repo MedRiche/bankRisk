@@ -1,4 +1,4 @@
-// src/components/clients/ClientDetail.jsx
+// src/components/admin/ClientDetail.jsx (Corrigé)
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
@@ -17,6 +17,12 @@ import {
   Chip,
   Card,
   CardContent,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
 } from '@mui/material';
 import { ArrowBack, Edit, Delete } from '@mui/icons-material';
 import clientService from '../../services/clientService';
@@ -25,21 +31,26 @@ const ClientDetail = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const [client, setClient] = useState(null);
+  const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    loadClient();
+    loadClientData();
   }, [id]);
 
-  const loadClient = async () => {
+  const loadClientData = async () => {
     try {
       setLoading(true);
-      const data = await clientService.getClientById(id);
-      setClient(data);
+      const [clientData, appsData] = await Promise.all([
+        clientService.getClientById(id),
+        clientService.getApplicationsByClient(id)
+      ]);
+      setClient(clientData);
+      setApplications(appsData);
       setError('');
     } catch (err) {
-      setError('Erreur lors du chargement du client');
+      setError('Erreur lors du chargement des données du client');
     } finally {
       setLoading(false);
     }
@@ -49,21 +60,46 @@ const ClientDetail = () => {
     if (window.confirm('Êtes-vous sûr de vouloir supprimer ce client ?')) {
       try {
         await clientService.deleteClient(id);
-        navigate('/clients');
+        navigate('/admin/clients');
       } catch (err) {
         setError('Erreur lors de la suppression du client');
       }
     }
   };
 
-  const getSexStatusLabel = (status) => {
+  const getJobLabel = (job) => {
     const labels = {
-      A91: 'Homme célibataire',
-      A92: 'Femme célibataire',
-      A93: 'Homme marié/veuf',
-      A94: 'Femme mariée/veuve',
+      0: 'Chômeur / Non qualifié non-résident',
+      1: 'Non qualifié résident',
+      2: 'Employé qualifié / Fonctionnaire',
+      3: 'Cadre / Hautement qualifié',
     };
-    return labels[status] || status;
+    return labels[job] || `Niveau ${job}`;
+  };
+
+  const getAccountLabel = (account) => {
+    const labels = {
+      'little': 'Peu (≤ 100 DM)',
+      'moderate': 'Modéré (100-500 DM)',
+      'quite rich': 'Assez riche (500-1000 DM)',
+      'rich': 'Riche (> 1000 DM)',
+      'NA': 'Non renseigné',
+    };
+    return labels[account] || account;
+  };
+
+  const getPurposeLabel = (purpose) => {
+    const labels = {
+      'car': '🚗 Voiture',
+      'radio/TV': '📺 Radio/TV',
+      'furniture/equipment': '🛋️ Meubles/Équipement',
+      'education': '🎓 Éducation',
+      'business': '💼 Affaires',
+      'domestic appliances': '🏠 Électroménager',
+      'repairs': '🔧 Réparations',
+      'vacation/others': '✈️ Vacances/Autres',
+    };
+    return labels[purpose] || purpose;
   };
 
   if (loading) {
@@ -83,23 +119,23 @@ const ClientDetail = () => {
   }
 
   return (
-    <Box>
+    <Box sx={{ bgcolor: '#f5f5f5', minHeight: '100vh' }}>
       <AppBar position="static">
         <Toolbar>
           <IconButton
             edge="start"
             color="inherit"
-            onClick={() => navigate('/clients')}
+            onClick={() => navigate('/admin/clients')}
           >
             <ArrowBack />
           </IconButton>
           <Typography variant="h6" sx={{ ml: 2, flexGrow: 1 }}>
-            Détails du Client
+            Détails du Client - German Credit Dataset
           </Typography>
           <Button
             color="inherit"
             startIcon={<Edit />}
-            onClick={() => navigate(`/clients/${id}/edit`)}
+            onClick={() => navigate(`/admin/clients/${id}/edit`)}
           >
             Modifier
           </Button>
@@ -121,9 +157,9 @@ const ClientDetail = () => {
         )}
 
         <Grid container spacing={3}>
-          {/* Informations de base */}
+          {/* Informations personnelles */}
           <Grid item xs={12} md={6}>
-            <Card>
+            <Card elevation={0}>
               <CardContent>
                 <Typography variant="h6" gutterBottom color="primary">
                   Informations Personnelles
@@ -132,56 +168,66 @@ const ClientDetail = () => {
 
                 <Box sx={{ mb: 2 }}>
                   <Typography variant="caption" color="text.secondary">
-                    Nom complet
+                    Email
                   </Typography>
                   <Typography variant="body1" fontWeight="bold">
-                    {client.name}
+                    {client.user_email || 'N/A'}
                   </Typography>
                 </Box>
 
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="caption" color="text.secondary">
-                    Âge
-                  </Typography>
-                  <Typography variant="body1">
-                    {client.age_in_years} ans
-                  </Typography>
-                </Box>
+                <Grid container spacing={2}>
+                  <Grid item xs={6}>
+                    <Typography variant="caption" color="text.secondary">
+                      Âge
+                    </Typography>
+                    <Typography variant="body1" fontWeight="bold">
+                      {client.age} ans
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="caption" color="text.secondary">
+                      Sexe
+                    </Typography>
+                    <Box sx={{ mt: 0.5 }}>
+                      <Chip
+                        label={client.sex === 'male' ? 'Homme' : 'Femme'}
+                        color={client.sex === 'male' ? 'primary' : 'secondary'}
+                        size="small"
+                      />
+                    </Box>
+                  </Grid>
+                </Grid>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* Informations professionnelles */}
+          <Grid item xs={12} md={6}>
+            <Card elevation={0}>
+              <CardContent>
+                <Typography variant="h6" gutterBottom color="primary">
+                  Informations Professionnelles
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
 
                 <Box sx={{ mb: 2 }}>
                   <Typography variant="caption" color="text.secondary">
-                    Statut
+                    Niveau d'emploi
                   </Typography>
-                  <Box sx={{ mt: 0.5 }}>
-                    <Chip
-                      label={getSexStatusLabel(client.sex_status)}
-                      color="primary"
-                      size="small"
-                    />
-                  </Box>
-                </Box>
-
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="caption" color="text.secondary">
-                    Téléphone
+                  <Typography variant="body1" fontWeight="bold">
+                    {getJobLabel(client.job)}
                   </Typography>
-                  <Box sx={{ mt: 0.5 }}>
-                    <Chip
-                      label={client.telephone === 'A191' ? 'Oui' : 'Non'}
-                      color={client.telephone === 'A191' ? 'success' : 'default'}
-                      size="small"
-                    />
-                  </Box>
                 </Box>
 
                 <Box>
                   <Typography variant="caption" color="text.secondary">
-                    Travailleur étranger
+                    Type de logement
                   </Typography>
                   <Box sx={{ mt: 0.5 }}>
                     <Chip
-                      label={client.foreign_worker === 'A201' ? 'Oui' : 'Non'}
-                      color={client.foreign_worker === 'A201' ? 'warning' : 'default'}
+                      label={client.housing === 'own' ? 'Propriétaire' : 
+                             client.housing === 'rent' ? 'Locataire' : 'Gratuit'}
+                      color="info"
                       size="small"
                     />
                   </Box>
@@ -191,177 +237,141 @@ const ClientDetail = () => {
           </Grid>
 
           {/* Informations financières */}
-          {client.financial && (
-            <Grid item xs={12} md={6}>
-              <Card>
-                <CardContent>
-                  <Typography variant="h6" gutterBottom color="primary">
-                    Informations Financières
-                  </Typography>
-                  <Divider sx={{ mb: 2 }} />
+          <Grid item xs={12} md={6}>
+            <Card elevation={0}>
+              <CardContent>
+                <Typography variant="h6" gutterBottom color="primary">
+                  Informations Financières
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
 
-                  <Box sx={{ mb: 2 }}>
+                <Grid container spacing={2}>
+                  <Grid item xs={12}>
                     <Typography variant="caption" color="text.secondary">
-                      Montant du crédit
+                      Compte épargne
                     </Typography>
                     <Typography variant="body1" fontWeight="bold">
-                      {client.financial.credit_amount?.toLocaleString()} €
+                      {getAccountLabel(client.saving_accounts)}
                     </Typography>
-                  </Box>
-
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="caption" color="text.secondary">
-                      Durée (mois)
-                    </Typography>
-                    <Typography variant="body1">
-                      {client.financial.duration_in_month}
-                    </Typography>
-                  </Box>
-
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="caption" color="text.secondary">
-                      Versement mensuel
-                    </Typography>
-                    <Typography variant="body1">
-                      {client.financial.installment}%
-                    </Typography>
-                  </Box>
-
-                  <Box sx={{ mb: 2 }}>
+                  </Grid>
+                  <Grid item xs={12}>
                     <Typography variant="caption" color="text.secondary">
                       Compte courant
                     </Typography>
-                    <Typography variant="body1">
-                      {client.financial.checking_account_status}
+                    <Typography variant="body1" fontWeight="bold">
+                      {getAccountLabel(client.checking_account)}
                     </Typography>
-                  </Box>
+                  </Grid>
+                </Grid>
+              </CardContent>
+            </Card>
+          </Grid>
 
-                  <Box>
+          {/* Statistiques du client */}
+          <Grid item xs={12} md={6}>
+            <Card elevation={0}>
+              <CardContent>
+                <Typography variant="h6" gutterBottom color="primary">
+                  Statistiques
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+
+                <Grid container spacing={2}>
+                  <Grid item xs={6}>
                     <Typography variant="caption" color="text.secondary">
-                      Épargne/Obligations
+                      Demandes de crédit
                     </Typography>
-                    <Typography variant="body1">
-                      {client.financial.savings_account_bonds}
+                    <Typography variant="h6" color="primary">
+                      {applications.length}
                     </Typography>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-          )}
-
-          {/* Informations d'emploi */}
-          {client.employment && (
-            <Grid item xs={12} md={6}>
-              <Card>
-                <CardContent>
-                  <Typography variant="h6" gutterBottom color="primary">
-                    Informations d'Emploi
-                  </Typography>
-                  <Divider sx={{ mb: 2 }} />
-
-                  <Box sx={{ mb: 2 }}>
+                  </Grid>
+                  <Grid item xs={6}>
                     <Typography variant="caption" color="text.secondary">
-                      Statut d'emploi
+                      Dernière demande
                     </Typography>
-                    <Typography variant="body1">
-                      {client.employment.employment_status}
+                    <Typography variant="body2">
+                      {applications.length > 0 
+                        ? new Date(applications[0].submission_date).toLocaleDateString()
+                        : 'Aucune'
+                      }
                     </Typography>
-                  </Box>
+                  </Grid>
+                </Grid>
+              </CardContent>
+            </Card>
+          </Grid>
 
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="caption" color="text.secondary">
-                      Type de poste
-                    </Typography>
-                    <Typography variant="body1">
-                      {client.employment.job_type}
-                    </Typography>
-                  </Box>
-
-                  <Box>
-                    <Typography variant="caption" color="text.secondary">
-                      Nombre de crédits existants
-                    </Typography>
-                    <Typography variant="body1">
-                      {client.employment.existing_credits_no}
-                    </Typography>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-          )}
-
-          {/* Informations de propriété */}
-          {client.property && (
-            <Grid item xs={12} md={6}>
-              <Card>
-                <CardContent>
-                  <Typography variant="h6" gutterBottom color="primary">
-                    Informations de Propriété
-                  </Typography>
-                  <Divider sx={{ mb: 2 }} />
-
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="caption" color="text.secondary">
-                      Type de propriété
-                    </Typography>
-                    <Typography variant="body1">
-                      {client.property.property_type}
-                    </Typography>
-                  </Box>
-
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="caption" color="text.secondary">
-                      Logement
-                    </Typography>
-                    <Typography variant="body1">
-                      {client.property.housing}
-                    </Typography>
-                  </Box>
-
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="caption" color="text.secondary">
-                      Autres plans de versement
-                    </Typography>
-                    <Typography variant="body1">
-                      {client.property.other_installment_plans}
-                    </Typography>
-                  </Box>
-
-                  <Box>
-                    <Typography variant="caption" color="text.secondary">
-                      Personnes à charge
-                    </Typography>
-                    <Typography variant="body1">
-                      {client.property.liability_responsibles}
-                    </Typography>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-          )}
-
-          {/* Applications */}
-          {client.applications && client.applications.length > 0 && (
+          {/* Historique des demandes de crédit */}
+          {applications.length > 0 && (
             <Grid item xs={12}>
-              <Card>
+              <Card elevation={0}>
                 <CardContent>
                   <Typography variant="h6" gutterBottom color="primary">
-                    Demandes de Crédit
+                    Historique des Demandes de Crédit ({applications.length})
                   </Typography>
                   <Divider sx={{ mb: 2 }} />
-                  {client.applications.map((app, index) => (
-                    <Box key={index} sx={{ mb: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
-                      <Typography variant="body2">
-                        <strong>Objectif:</strong> {app.purpose}
-                      </Typography>
-                      <Typography variant="body2">
-                        <strong>Historique de crédit:</strong> {app.credit_history}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {new Date(app.submission_date).toLocaleDateString()}
-                      </Typography>
-                    </Box>
-                  ))}
+                  
+                  <TableContainer>
+                    <Table>
+                      <TableHead>
+                        <TableRow>
+                          <TableCell><strong>Date</strong></TableCell>
+                          <TableCell><strong>Montant</strong></TableCell>
+                          <TableCell><strong>Durée</strong></TableCell>
+                          <TableCell><strong>Objectif</strong></TableCell>
+                          <TableCell><strong>Risque</strong></TableCell>
+                          <TableCell><strong>Statut</strong></TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {applications.map((app) => (
+                          <TableRow key={app.id} hover>
+                            <TableCell>
+                              {new Date(app.submission_date).toLocaleDateString()}
+                            </TableCell>
+                            <TableCell>
+                              <Typography fontWeight="bold">
+                                {app.credit_amount?.toLocaleString()} €
+                              </Typography>
+                            </TableCell>
+                            <TableCell>{app.duration} mois</TableCell>
+                            <TableCell>{getPurposeLabel(app.purpose)}</TableCell>
+                            <TableCell>
+                              <Chip
+                                label={app.risk === 'good' ? 'Bon' : 'Mauvais'}
+                                color={app.risk === 'good' ? 'success' : 'error'}
+                                size="small"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Chip
+                                label={app.status === 'approved' ? 'Approuvé' : 
+                                       app.status === 'rejected' ? 'Rejeté' : 'En attente'}
+                                color={app.status === 'approved' ? 'success' : 
+                                       app.status === 'rejected' ? 'error' : 'warning'}
+                                size="small"
+                              />
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </CardContent>
+              </Card>
+            </Grid>
+          )}
+
+          {applications.length === 0 && (
+            <Grid item xs={12}>
+              <Card elevation={0}>
+                <CardContent sx={{ textAlign: 'center', py: 4 }}>
+                  <Typography variant="h6" color="text.secondary" gutterBottom>
+                    Aucune demande de crédit
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Ce client n'a pas encore soumis de demande de crédit.
+                  </Typography>
                 </CardContent>
               </Card>
             </Grid>

@@ -1,4 +1,4 @@
-// src/components/admin/AdminDashboard.jsx
+// src/components/admin/AdminDashboard.jsx (Corrigé)
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -34,6 +34,7 @@ import {
   Dashboard as DashboardIcon,
   People as PeopleIcon,
   Assessment as AssessmentIcon,
+  Analytics as AnalyticsIcon,
   ExitToApp,
   TrendingUp,
   TrendingDown,
@@ -43,13 +44,8 @@ import {
   Visibility,
 } from '@mui/icons-material';
 import {
-  LineChart,
-  Line,
   BarChart,
   Bar,
-  PieChart,
-  Pie,
-  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -75,9 +71,11 @@ const AdminDashboard = () => {
     approved: 0,
     pending: 0,
     rejected: 0,
+    goodRisk: 0,
+    badRisk: 0,
   });
   
-  const [recentClients, setRecentClients] = useState([]);
+  const [recentApplications, setRecentApplications] = useState([]);
 
   useEffect(() => {
     loadDashboardData();
@@ -86,21 +84,31 @@ const AdminDashboard = () => {
   const loadDashboardData = async () => {
     try {
       setLoading(true);
-      // Charger les statistiques depuis l'API
+      const applications = await clientService.getAllApplications();
       const clients = await clientService.getAllClients();
       
-      setRecentClients(clients.slice(0, 5));
-      
-      // Calculer les statistiques (à adapter selon votre API)
+      // Calculer les statistiques
+      const approved = applications.filter(app => app.status === 'approved').length;
+      const pending = applications.filter(app => app.status === 'pending').length;
+      const rejected = applications.filter(app => app.status === 'rejected').length;
+      const goodRisk = applications.filter(app => app.risk === 'good').length;
+      const badRisk = applications.filter(app => app.risk === 'bad').length;
+
       setStats({
         totalClients: clients.length,
-        totalApplications: 328,
-        approved: 228,
-        pending: 15,
-        rejected: 85,
+        totalApplications: applications.length,
+        approved,
+        pending,
+        rejected,
+        goodRisk,
+        badRisk,
       });
+
+      // Applications récentes (5 dernières)
+      setRecentApplications(applications.slice(0, 5));
     } catch (err) {
       setError('Erreur lors du chargement des données');
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -124,20 +132,16 @@ const AdminDashboard = () => {
     }
   };
 
-  // Données pour les graphiques
-  const monthlyData = [
-    { month: 'Jan', approved: 45, rejected: 12, pending: 8 },
-    { month: 'Fév', approved: 52, rejected: 15, pending: 10 },
-    { month: 'Mar', approved: 48, rejected: 10, pending: 12 },
-    { month: 'Avr', approved: 61, rejected: 18, pending: 9 },
-    { month: 'Mai', approved: 55, rejected: 14, pending: 11 },
-    { month: 'Juin', approved: 67, rejected: 16, pending: 13 },
+  // Données pour le graphique
+  const riskData = [
+    { name: 'Bon Risque', value: stats.goodRisk },
+    { name: 'Mauvais Risque', value: stats.badRisk },
   ];
 
-  const riskDistribution = [
-    { name: 'Risque Faible', value: 45, color: '#10b981' },
-    { name: 'Risque Moyen', value: 35, color: '#f59e0b' },
-    { name: 'Risque Élevé', value: 20, color: '#ef4444' },
+  const statusData = [
+    { name: 'Approuvé', value: stats.approved },
+    { name: 'Rejeté', value: stats.rejected },
+    { name: 'En attente', value: stats.pending },
   ];
 
   const drawer = (
@@ -147,7 +151,7 @@ const AdminDashboard = () => {
           <Avatar sx={{ bgcolor: 'primary.main', mr: 2 }}>BR</Avatar>
           <Box>
             <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
-              BankRisk
+              BankRisk AI
             </Typography>
             <Typography variant="caption" color="text.secondary">
               Admin Panel
@@ -185,7 +189,7 @@ const AdminDashboard = () => {
           onClick={() => handleNavigation('analytics')}
         >
           <ListItemIcon>
-            <AssessmentIcon />
+            <AnalyticsIcon />
           </ListItemIcon>
           <ListItemText primary="Analytiques" />
         </ListItem>
@@ -222,9 +226,8 @@ const AdminDashboard = () => {
           </IconButton>
           
           <Typography variant="h6" sx={{ flexGrow: 1 }}>
-            Tableau de Bord Admin
+            Tableau de Bord Admin - German Credit Dataset
           </Typography>
-
           <Typography variant="body2" sx={{ mr: 2 }}>
             {authService.getCurrentUser()}
           </Typography>
@@ -298,14 +301,11 @@ const AdminDashboard = () => {
                       <Typography variant="h4" sx={{ fontWeight: 'bold', mt: 1 }}>
                         {stats.totalApplications}
                       </Typography>
-                      <Chip
-                        label="+12% ce mois"
-                        size="small"
-                        color="success"
-                        sx={{ mt: 1 }}
-                      />
+                      <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                        German Credit Dataset
+                      </Typography>
                     </Box>
-                    <TrendingUp sx={{ fontSize: 50, color: 'primary.main', opacity: 0.3 }} />
+                    <AssessmentIcon sx={{ fontSize: 50, color: 'primary.main', opacity: 0.3 }} />
                   </Box>
                 </CardContent>
               </Card>
@@ -317,16 +317,16 @@ const AdminDashboard = () => {
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <Box>
                       <Typography variant="body2" color="text.secondary">
-                        Approuvées
+                        Bon Risque
                       </Typography>
                       <Typography variant="h4" sx={{ fontWeight: 'bold', mt: 1, color: 'success.main' }}>
-                        {stats.approved}
+                        {stats.goodRisk}
                       </Typography>
                       <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                        69.5% du total
+                        {stats.totalApplications > 0 ? ((stats.goodRisk / stats.totalApplications) * 100).toFixed(1) : 0}% du total
                       </Typography>
                     </Box>
-                    <CheckCircle sx={{ fontSize: 50, color: 'success.main', opacity: 0.3 }} />
+                    <TrendingUp sx={{ fontSize: 50, color: 'success.main', opacity: 0.3 }} />
                   </Box>
                 </CardContent>
               </Card>
@@ -338,16 +338,16 @@ const AdminDashboard = () => {
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <Box>
                       <Typography variant="body2" color="text.secondary">
-                        Rejetées
+                        Mauvais Risque
                       </Typography>
                       <Typography variant="h4" sx={{ fontWeight: 'bold', mt: 1, color: 'error.main' }}>
-                        {stats.rejected}
+                        {stats.badRisk}
                       </Typography>
                       <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                        25.9% du total
+                        {stats.totalApplications > 0 ? ((stats.badRisk / stats.totalApplications) * 100).toFixed(1) : 0}% du total
                       </Typography>
                     </Box>
-                    <Cancel sx={{ fontSize: 50, color: 'error.main', opacity: 0.3 }} />
+                    <TrendingDown sx={{ fontSize: 50, color: 'error.main', opacity: 0.3 }} />
                   </Box>
                 </CardContent>
               </Card>
@@ -359,16 +359,16 @@ const AdminDashboard = () => {
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <Box>
                       <Typography variant="body2" color="text.secondary">
-                        En Attente
+                        Clients Uniques
                       </Typography>
                       <Typography variant="h4" sx={{ fontWeight: 'bold', mt: 1, color: 'warning.main' }}>
-                        {stats.pending}
+                        {stats.totalClients}
                       </Typography>
                       <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                        4.6% du total
+                        Base de données
                       </Typography>
                     </Box>
-                    <Pending sx={{ fontSize: 50, color: 'warning.main', opacity: 0.3 }} />
+                    <PeopleIcon sx={{ fontSize: 50, color: 'warning.main', opacity: 0.3 }} />
                   </Box>
                 </CardContent>
               </Card>
@@ -377,69 +377,50 @@ const AdminDashboard = () => {
 
           {/* Graphiques */}
           <Grid container spacing={3} sx={{ mb: 4 }}>
-            {/* Tendance Mensuelle */}
-            <Grid item xs={12} lg={8}>
+            {/* Distribution des risques */}
+            <Grid item xs={12} md={6}>
               <Card elevation={0}>
                 <CardContent>
                   <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold' }}>
-                    Tendance Mensuelle
+                    Distribution des Risques
                   </Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                    Demandes approuvées, rejetées et en attente
-                  </Typography>
-                  
                   <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={monthlyData}>
+                    <BarChart data={riskData}>
                       <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="month" />
+                      <XAxis dataKey="name" />
                       <YAxis />
                       <Tooltip />
                       <Legend />
-                      <Bar dataKey="approved" fill="#10b981" name="Approuvées" />
-                      <Bar dataKey="rejected" fill="#ef4444" name="Rejetées" />
-                      <Bar dataKey="pending" fill="#f59e0b" name="En Attente" />
+                      <Bar dataKey="value" name="Nombre de demandes" fill="#8884d8" />
                     </BarChart>
                   </ResponsiveContainer>
                 </CardContent>
               </Card>
             </Grid>
 
-            {/* Distribution des Risques */}
-            <Grid item xs={12} lg={4}>
+            {/* Statut des demandes */}
+            <Grid item xs={12} md={6}>
               <Card elevation={0}>
                 <CardContent>
                   <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold' }}>
-                    Distribution des Risques
+                    Statut des Demandes
                   </Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                    Répartition par niveau de risque
-                  </Typography>
-                  
                   <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie
-                        data={riskDistribution}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={({ name, value }) => `${name}: ${value}%`}
-                        outerRadius={80}
-                        fill="#8884d8"
-                        dataKey="value"
-                      >
-                        {riskDistribution.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
+                    <BarChart data={statusData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
                       <Tooltip />
-                    </PieChart>
+                      <Legend />
+                      <Bar dataKey="value" name="Nombre" fill="#82ca9d" />
+                    </BarChart>
                   </ResponsiveContainer>
                 </CardContent>
               </Card>
             </Grid>
           </Grid>
 
-          {/* Clients Récents */}
+          {/* Demandes récentes */}
           <Card elevation={0}>
             <CardContent>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
@@ -453,41 +434,55 @@ const AdminDashboard = () => {
                   Voir Tout
                 </Button>
               </Box>
-
               <TableContainer>
                 <Table>
                   <TableHead>
                     <TableRow>
-                      <TableCell><strong>Nom</strong></TableCell>
+                      <TableCell><strong>Client</strong></TableCell>
                       <TableCell><strong>Montant</strong></TableCell>
-                      <TableCell><strong>Score de Risque</strong></TableCell>
+                      <TableCell><strong>Durée</strong></TableCell>
+                      <TableCell><strong>Objectif</strong></TableCell>
+                      <TableCell><strong>Risque</strong></TableCell>
                       <TableCell><strong>Statut</strong></TableCell>
-                      <TableCell><strong>Date</strong></TableCell>
                       <TableCell align="right"><strong>Action</strong></TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {recentClients.map((client) => (
-                      <TableRow key={client.id} hover>
-                        <TableCell>{client.name}</TableCell>
-                        <TableCell>60,000 €</TableCell>
+                    {recentApplications.map((application) => (
+                      <TableRow key={application.id} hover>
+                        <TableCell>
+                          {application.client?.user_email || 'N/A'}
+                        </TableCell>
+                        <TableCell>
+                          {application.credit_amount?.toLocaleString()} €
+                        </TableCell>
+                        <TableCell>
+                          {application.duration} mois
+                        </TableCell>
+                        <TableCell>
+                          {application.purpose}
+                        </TableCell>
                         <TableCell>
                           <Chip
-                            icon={<TrendingDown />}
-                            label="26%"
-                            color="success"
+                            label={application.risk === 'good' ? 'Bon' : 'Mauvais'}
+                            color={application.risk === 'good' ? 'success' : 'error'}
                             size="small"
                           />
                         </TableCell>
                         <TableCell>
-                          <Chip label="Approuvé" color="success" size="small" />
+                          <Chip
+                            label={application.status === 'approved' ? 'Approuvé' : 
+                                   application.status === 'rejected' ? 'Rejeté' : 'En attente'}
+                            color={application.status === 'approved' ? 'success' : 
+                                   application.status === 'rejected' ? 'error' : 'warning'}
+                            size="small"
+                          />
                         </TableCell>
-                        <TableCell>{new Date().toLocaleDateString()}</TableCell>
                         <TableCell align="right">
                           <IconButton
                             size="small"
                             color="primary"
-                            onClick={() => navigate(`/admin/clients/${client.id}`)}
+                            onClick={() => navigate(`/admin/applications/${application.id}`)}
                           >
                             <Visibility />
                           </IconButton>

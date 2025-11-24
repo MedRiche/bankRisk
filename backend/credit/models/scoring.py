@@ -1,3 +1,4 @@
+# backend/credit/models/scoring.py
 from mongoengine import Document, ReferenceField, FloatField, StringField, DateTimeField
 from .application import Application
 import datetime

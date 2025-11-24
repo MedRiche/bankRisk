@@ -1,3 +1,4 @@
+# backend/credit/models/financial.py
 from mongoengine import Document, ReferenceField, StringField, FloatField, IntField
 from .client import Client
 

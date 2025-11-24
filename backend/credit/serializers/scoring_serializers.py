@@ -1,4 +1,4 @@
-# credit/serializers/scoring_serializer.py
+# backend/credit/serializers/scoring_serializer.py
 from rest_framework import serializers
 from credit.models.scoring import Scoring
 

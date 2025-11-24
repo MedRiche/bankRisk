@@ -26,6 +26,7 @@ import {
   CheckCircle,
   Pending,
   Cancel,
+  Warning,
 } from '@mui/icons-material';
 import authService from '../../services/authService';
 import clientService from '../../services/clientService';
@@ -33,6 +34,7 @@ import clientService from '../../services/clientService';
 const ClientDashboard = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
+  const [client, setClient] = useState(null);
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -45,16 +47,24 @@ const ClientDashboard = () => {
     try {
       setLoading(true);
       const userEmail = authService.getCurrentUser();
-      setUser({ email: userEmail });
+      const userFullName = authService.getCurrentUserFullName();
+      setUser({ 
+        email: userEmail,
+        fullName: userFullName 
+      });
       
-      // Charger les demandes de crédit de l'utilisateur
-      // À adapter selon votre API
+      // Charger le profil client
       const clientData = await clientService.getClientByEmail(userEmail);
+      setClient(clientData);
+
+      // Charger les demandes de crédit de l'utilisateur
       if (clientData) {
-        setApplications(clientData.applications || []);
+        const userApplications = await clientService.getApplicationsByUserEmail(userEmail);
+        setApplications(userApplications);
       }
     } catch (err) {
       console.error('Erreur lors du chargement:', err);
+      setError('Erreur lors du chargement des données');
     } finally {
       setLoading(false);
     }
@@ -67,11 +77,11 @@ const ClientDashboard = () => {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'Approuvé':
+      case 'approved':
         return 'success';
-      case 'En attente':
+      case 'pending':
         return 'warning';
-      case 'Rejeté':
+      case 'rejected':
         return 'error';
       default:
         return 'default';
@@ -80,14 +90,53 @@ const ClientDashboard = () => {
 
   const getStatusIcon = (status) => {
     switch (status) {
-      case 'Approuvé':
+      case 'approved':
         return <CheckCircle />;
-      case 'En attente':
+      case 'pending':
         return <Pending />;
-      case 'Rejeté':
+      case 'rejected':
         return <Cancel />;
       default:
-        return null;
+        return <Warning />;
+    }
+  };
+
+  const getStatusLabel = (status) => {
+    switch (status) {
+      case 'approved':
+        return 'Approuvé';
+      case 'pending':
+        return 'En attente';
+      case 'rejected':
+        return 'Rejeté';
+      default:
+        return status;
+    }
+  };
+
+  const getRiskLabel = (risk) => {
+    switch (risk) {
+      case 'good':
+        return 'Bon';
+      case 'bad':
+        return 'Mauvais';
+      case 'pending':
+        return 'En cours';
+      default:
+        return risk;
+    }
+  };
+
+  const getRiskColor = (risk) => {
+    switch (risk) {
+      case 'good':
+        return 'success';
+      case 'bad':
+        return 'error';
+      case 'pending':
+        return 'warning';
+      default:
+        return 'default';
     }
   };
 
@@ -106,7 +155,7 @@ const ClientDashboard = () => {
         <Toolbar>
           <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1 }}>
             <Typography variant="h6" sx={{ fontWeight: 'bold', mr: 1 }}>
-              BankRisk
+              BankRisk AI
             </Typography>
             <Chip label="Client" size="small" color="secondary" />
           </Box>
@@ -163,11 +212,19 @@ const ClientDashboard = () => {
                 Bienvenue sur BankRisk AI
               </Typography>
               <Typography variant="body1" sx={{ opacity: 0.9 }}>
-                {user?.email}
+                {user?.fullName || user?.email}
               </Typography>
               <Typography variant="body2" sx={{ mt: 1, opacity: 0.8 }}>
-                Système Intelligent d'Évaluation de Crédit
+                Système Intelligent d'Évaluation de Crédit - German Credit Dataset
               </Typography>
+              
+              {!client && (
+                <Alert severity="warning" sx={{ mt: 2, bgcolor: 'rgba(255,255,255,0.1)' }}>
+                  <Typography variant="body2">
+                    ⚠️ Votre profil n'est pas complet. Complétez-le pour soumettre une demande de crédit.
+                  </Typography>
+                </Alert>
+              )}
             </Grid>
           </Grid>
         </Paper>
@@ -194,16 +251,22 @@ const ClientDashboard = () => {
                   Demander un Crédit
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Soumettez une nouvelle demande de crédit et obtenez une évaluation rapide
+                  Soumettez une nouvelle demande de crédit et obtenez une évaluation rapide basée sur l'IA
                 </Typography>
                 <Button
                   variant="contained"
                   size="large"
                   sx={{ mt: 3 }}
                   fullWidth
+                  disabled={!client}
                 >
-                  Nouvelle Demande
+                  {client ? 'Nouvelle Demande' : 'Complétez votre profil'}
                 </Button>
+                {!client && (
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                    Profil requis pour soumettre une demande
+                  </Typography>
+                )}
               </CardContent>
             </Card>
           </Grid>
@@ -236,8 +299,13 @@ const ClientDashboard = () => {
                   sx={{ mt: 3 }}
                   fullWidth
                 >
-                  Voir le Profil
+                  {client ? 'Voir le Profil' : 'Créer le Profil'}
                 </Button>
+                {client && (
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                    Profil complet ✓
+                  </Typography>
+                )}
               </CardContent>
             </Card>
           </Grid>
@@ -248,7 +316,7 @@ const ClientDashboard = () => {
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
             <Assessment sx={{ mr: 1, color: 'primary.main' }} />
             <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-              Mes Demandes de Crédit
+              Mes Demandes de Crédit ({applications.length})
             </Typography>
           </Box>
 
@@ -259,33 +327,47 @@ const ClientDashboard = () => {
                 Aucune demande de crédit
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                Vous n'avez pas encore soumis de demande de crédit
+                {client 
+                  ? "Vous n'avez pas encore soumis de demande de crédit"
+                  : "Complétez votre profil pour soumettre votre première demande"
+                }
               </Typography>
               <Button
                 variant="contained"
                 startIcon={<AddCard />}
-                onClick={() => navigate('/client/apply-credit')}
+                onClick={() => navigate(client ? '/client/apply-credit' : '/client/profile')}
               >
-                Faire une Demande
+                {client ? 'Faire une Demande' : 'Compléter le Profil'}
               </Button>
             </Box>
           ) : (
             <Grid container spacing={2}>
-              {applications.map((app, index) => (
-                <Grid item xs={12} key={index}>
-                  <Card elevation={0} sx={{ border: '1px solid', borderColor: 'divider' }}>
+              {applications.map((app) => (
+                <Grid item xs={12} key={app.id}>
+                  <Card 
+                    elevation={0} 
+                    sx={{ 
+                      border: '1px solid', 
+                      borderColor: 'divider',
+                      cursor: 'pointer',
+                      '&:hover': {
+                        bgcolor: 'action.hover'
+                      }
+                    }}
+                    onClick={() => navigate(`/client/applications/${app.id}`)}
+                  >
                     <CardContent>
                       <Grid container spacing={2} alignItems="center">
-                        <Grid item xs={12} sm={3}>
+                        <Grid item xs={12} sm={2}>
                           <Typography variant="caption" color="text.secondary">
-                            Date de demande
+                            Date
                           </Typography>
                           <Typography variant="body2" fontWeight="bold">
-                            {new Date(app.submission_date).toLocaleDateString('fr-FR')}
+                            {app.submission_date ? new Date(app.submission_date).toLocaleDateString('fr-FR') : 'N/A'}
                           </Typography>
                         </Grid>
                         
-                        <Grid item xs={12} sm={3}>
+                        <Grid item xs={12} sm={2}>
                           <Typography variant="caption" color="text.secondary">
                             Montant
                           </Typography>
@@ -294,19 +376,37 @@ const ClientDashboard = () => {
                           </Typography>
                         </Grid>
                         
-                        <Grid item xs={12} sm={3}>
+                        <Grid item xs={12} sm={2}>
                           <Typography variant="caption" color="text.secondary">
                             Durée
                           </Typography>
                           <Typography variant="body2" fontWeight="bold">
-                            {app.duration_in_month} mois
+                            {app.duration} mois
+                          </Typography>
+                        </Grid>
+
+                        <Grid item xs={12} sm={3}>
+                          <Typography variant="caption" color="text.secondary">
+                            Objectif
+                          </Typography>
+                          <Typography variant="body2" fontWeight="bold">
+                            {app.purpose}
                           </Typography>
                         </Grid>
                         
-                        <Grid item xs={12} sm={3}>
+                        <Grid item xs={12} sm={1}>
+                          <Chip
+                            label={getRiskLabel(app.risk)}
+                            color={getRiskColor(app.risk)}
+                            size="small"
+                            sx={{ fontWeight: 'bold' }}
+                          />
+                        </Grid>
+
+                        <Grid item xs={12} sm={2}>
                           <Chip
                             icon={getStatusIcon(app.status)}
-                            label={app.status || 'En attente'}
+                            label={getStatusLabel(app.status)}
                             color={getStatusColor(app.status)}
                             sx={{ fontWeight: 'bold' }}
                           />
@@ -320,16 +420,73 @@ const ClientDashboard = () => {
           )}
         </Paper>
 
+        {/* Statistiques personnelles */}
+        {applications.length > 0 && (
+          <Grid container spacing={3} sx={{ mt: 2 }}>
+            <Grid item xs={12} md={3}>
+              <Card elevation={0} sx={{ bgcolor: '#e3f2fd', border: 'none' }}>
+                <CardContent sx={{ textAlign: 'center' }}>
+                  <Typography variant="h4" color="primary" sx={{ fontWeight: 'bold' }}>
+                    {applications.length}
+                  </Typography>
+                  <Typography variant="body2" color="primary.main">
+                    Demandes totales
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            <Grid item xs={12} md={3}>
+              <Card elevation={0} sx={{ bgcolor: '#e8f5e9', border: 'none' }}>
+                <CardContent sx={{ textAlign: 'center' }}>
+                  <Typography variant="h4" color="success.main" sx={{ fontWeight: 'bold' }}>
+                    {applications.filter(app => app.status === 'approved').length}
+                  </Typography>
+                  <Typography variant="body2" color="success.main">
+                    Demandes approuvées
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            <Grid item xs={12} md={3}>
+              <Card elevation={0} sx={{ bgcolor: '#fff3cd', border: 'none' }}>
+                <CardContent sx={{ textAlign: 'center' }}>
+                  <Typography variant="h4" color="warning.main" sx={{ fontWeight: 'bold' }}>
+                    {applications.filter(app => app.status === 'pending').length}
+                  </Typography>
+                  <Typography variant="body2" color="warning.main">
+                    En attente
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            <Grid item xs={12} md={3}>
+              <Card elevation={0} sx={{ bgcolor: '#ffebee', border: 'none' }}>
+                <CardContent sx={{ textAlign: 'center' }}>
+                  <Typography variant="h4" color="error.main" sx={{ fontWeight: 'bold' }}>
+                    {applications.filter(app => app.status === 'rejected').length}
+                  </Typography>
+                  <Typography variant="body2" color="error.main">
+                    Demandes rejetées
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+          </Grid>
+        )}
+
         {/* Informations utiles */}
         <Grid container spacing={3} sx={{ mt: 2 }}>
           <Grid item xs={12} md={4}>
             <Card elevation={0} sx={{ bgcolor: '#e3f2fd', border: 'none' }}>
               <CardContent>
                 <Typography variant="h6" gutterBottom color="primary" sx={{ fontWeight: 'bold' }}>
-                  Évaluation Rapide
+                  🚀 Évaluation Rapide
                 </Typography>
                 <Typography variant="body2">
-                  Notre IA analyse votre demande en temps réel pour une réponse rapide et précise.
+                  Notre IA analyse votre demande en temps réel pour une réponse rapide et précise basée sur le German Credit Dataset.
                 </Typography>
               </CardContent>
             </Card>
@@ -339,10 +496,10 @@ const ClientDashboard = () => {
             <Card elevation={0} sx={{ bgcolor: '#f3e5f5', border: 'none' }}>
               <CardContent>
                 <Typography variant="h6" gutterBottom color="secondary" sx={{ fontWeight: 'bold' }}>
-                  Sécurisé
+                  🔒 Sécurisé
                 </Typography>
                 <Typography variant="body2">
-                  Vos données sont protégées avec les meilleurs standards de sécurité bancaire.
+                  Vos données sont protégées avec les meilleurs standards de sécurité bancaire et conformes au RGPD.
                 </Typography>
               </CardContent>
             </Card>
@@ -352,10 +509,10 @@ const ClientDashboard = () => {
             <Card elevation={0} sx={{ bgcolor: '#e8f5e9', border: 'none' }}>
               <CardContent>
                 <Typography variant="h6" gutterBottom color="success.main" sx={{ fontWeight: 'bold' }}>
-                  Transparent
+                  📊 Transparent
                 </Typography>
                 <Typography variant="body2">
-                  Comprenez facilement les critères d'évaluation de votre demande de crédit.
+                  Comprenez facilement les critères d'évaluation de votre demande de crédit grâce à notre système explicable.
                 </Typography>
               </CardContent>
             </Card>

@@ -1,3 +1,4 @@
+# backend/credit/models/property.py
 from mongoengine import Document, ReferenceField, StringField, IntField
 from .client import Client
 

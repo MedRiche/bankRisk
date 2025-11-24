@@ -20,13 +20,13 @@ import {
   StepLabel,
   Card,
   CardContent,
-  Chip,
 } from '@mui/material';
 import {
   ArrowBack,
   Send,
   CheckCircle,
   Warning,
+  Info,
 } from '@mui/icons-material';
 import clientService from '../../services/clientService';
 import authService from '../../services/authService';
@@ -41,6 +41,7 @@ const CreditApplication = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [hasProfile, setHasProfile] = useState(false);
+  const [clientId, setClientId] = useState(null);
 
   const [formData, setFormData] = useState({
     // Informations du crédit
@@ -69,14 +70,15 @@ const CreditApplication = () => {
       
       if (client) {
         setHasProfile(true);
+        setClientId(client.id);
         setFormData(prev => ({
           ...prev,
-          age: client.age,
-          sex: client.sex,
-          job: client.job,
-          housing: client.housing,
-          saving_accounts: client.saving_accounts,
-          checking_account: client.checking_account,
+          age: client.age || '',
+          sex: client.sex || 'male',
+          job: client.job || 2,
+          housing: client.housing || 'rent',
+          saving_accounts: client.saving_accounts || 'NA',
+          checking_account: client.checking_account || 'NA',
         }));
       }
     } catch (err) {
@@ -105,6 +107,10 @@ const CreditApplication = () => {
         setError('Le montant minimum est de 250 €');
         return;
       }
+      if (parseFloat(formData.credit_amount) > 100000) {
+        setError('Le montant maximum est de 100 000 €');
+        return;
+      }
       if (parseInt(formData.duration) < 6 || parseInt(formData.duration) > 72) {
         setError('La durée doit être entre 6 et 72 mois');
         return;
@@ -112,8 +118,12 @@ const CreditApplication = () => {
     }
     
     if (activeStep === 1 && !hasProfile) {
-      if (!formData.age) {
+      if (!formData.age || !formData.sex || !formData.job || !formData.housing) {
         setError('Veuillez remplir tous les champs obligatoires');
+        return;
+      }
+      if (parseInt(formData.age) < 18 || parseInt(formData.age) > 100) {
+        setError('L\'âge doit être entre 18 et 100 ans');
         return;
       }
     }
@@ -131,30 +141,59 @@ const CreditApplication = () => {
       setLoading(true);
       setError('');
 
+      // Préparer les données pour la soumission
       const applicationData = {
         credit_amount: parseFloat(formData.credit_amount),
         duration: parseInt(formData.duration),
         purpose: formData.purpose,
-        age: parseInt(formData.age),
-        sex: formData.sex,
-        job: parseInt(formData.job),
-        housing: formData.housing,
-        saving_accounts: formData.saving_accounts,
-        checking_account: formData.checking_account,
       };
+
+      // Si le client n'existe pas encore, inclure les données du profil
+      if (!hasProfile) {
+        applicationData.age = parseInt(formData.age);
+        applicationData.sex = formData.sex;
+        applicationData.job = parseInt(formData.job);
+        applicationData.housing = formData.housing;
+        applicationData.saving_accounts = formData.saving_accounts;
+        applicationData.checking_account = formData.checking_account;
+      }
 
       await clientService.submitCreditApplication(applicationData);
       setSuccess(true);
       
       setTimeout(() => {
         navigate('/client/dashboard');
-      }, 2000);
+      }, 3000);
     } catch (err) {
-      setError('Erreur lors de la soumission de la demande');
-      console.error(err);
+      setError(err.message || 'Erreur lors de la soumission de la demande');
+      console.error('Erreur détaillée:', err);
     } finally {
       setLoading(false);
     }
+  };
+
+  const getPurposeLabel = (purpose) => {
+    const labels = {
+      'car': '🚗 Voiture',
+      'radio/TV': '📺 Radio/TV',
+      'furniture/equipment': '🛋️ Meubles/Équipement',
+      'education': '🎓 Éducation',
+      'business': '💼 Affaires',
+      'domestic appliances': '🏠 Électroménager',
+      'repairs': '🔧 Réparations',
+      'vacation/others': '✈️ Vacances/Autres',
+    };
+    return labels[purpose] || purpose;
+  };
+
+  const getJobLabel = (job) => {
+    const labels = {
+      0: 'Chômeur / Non qualifié non-résident',
+      1: 'Non qualifié résident',
+      2: 'Employé qualifié / Fonctionnaire',
+      3: 'Cadre / Hautement qualifié',
+    };
+    return labels[job] || `Niveau ${job}`;
   };
 
   const getStepContent = (step) => {
@@ -165,6 +204,9 @@ const CreditApplication = () => {
             <Grid item xs={12}>
               <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold' }}>
                 Détails de votre demande de crédit
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Renseignez les informations concernant le crédit que vous souhaitez obtenir
               </Typography>
             </Grid>
 
@@ -177,8 +219,8 @@ const CreditApplication = () => {
                 value={formData.credit_amount}
                 onChange={handleChange}
                 required
-                inputProps={{ min: 250, step: 100 }}
-                helperText="Montant minimum : 250 €"
+                inputProps={{ min: 250, max: 100000, step: 100 }}
+                helperText="Montant entre 250 € et 100 000 €"
               />
             </Grid>
 
@@ -223,8 +265,11 @@ const CreditApplication = () => {
                   <Typography variant="body2" color="primary">
                     💡 <strong>Mensualité estimée:</strong>{' '}
                     {formData.credit_amount && formData.duration
-                      ? `${(parseFloat(formData.credit_amount) / parseInt(formData.duration)).toFixed(2)} €`
+                      ? `${(parseFloat(formData.credit_amount) / parseInt(formData.duration)).toFixed(2)} €/mois`
                       : '- €'}
+                  </Typography>
+                  <Typography variant="caption" color="primary" sx={{ mt: 1, display: 'block' }}>
+                    Calcul basé sur un remboursement constant sur la durée du crédit
                   </Typography>
                 </CardContent>
               </Card>
@@ -277,7 +322,7 @@ const CreditApplication = () => {
                       </Grid>
                       <Grid item xs={6}>
                         <Typography variant="caption" color="text.secondary">Emploi</Typography>
-                        <Typography variant="body2" fontWeight="bold">Niveau {formData.job}</Typography>
+                        <Typography variant="body2" fontWeight="bold">{getJobLabel(formData.job)}</Typography>
                       </Grid>
                       <Grid item xs={6}>
                         <Typography variant="caption" color="text.secondary">Logement</Typography>
@@ -309,7 +354,7 @@ const CreditApplication = () => {
                   Complétez votre profil
                 </Typography>
                 <Typography variant="body2">
-                  Nous avons besoin de quelques informations supplémentaires pour traiter votre demande.
+                  Nous avons besoin de quelques informations supplémentaires pour traiter votre demande selon le German Credit Dataset.
                 </Typography>
               </Alert>
             </Grid>
@@ -324,6 +369,7 @@ const CreditApplication = () => {
                 onChange={handleChange}
                 required
                 inputProps={{ min: 18, max: 100 }}
+                helperText="Entre 18 et 100 ans"
               />
             </Grid>
 
@@ -352,10 +398,10 @@ const CreditApplication = () => {
                 onChange={handleChange}
                 required
               >
-                <MenuItem value={0}>0 - Chômeur</MenuItem>
-                <MenuItem value={1}>1 - Non qualifié</MenuItem>
-                <MenuItem value={2}>2 - Employé qualifié</MenuItem>
-                <MenuItem value={3}>3 - Cadre</MenuItem>
+                <MenuItem value={0}>0 - Chômeur / Non qualifié non-résident</MenuItem>
+                <MenuItem value={1}>1 - Non qualifié résident</MenuItem>
+                <MenuItem value={2}>2 - Employé qualifié / Fonctionnaire</MenuItem>
+                <MenuItem value={3}>3 - Cadre / Hautement qualifié</MenuItem>
               </TextField>
             </Grid>
 
@@ -371,7 +417,7 @@ const CreditApplication = () => {
               >
                 <MenuItem value="own">Propriétaire</MenuItem>
                 <MenuItem value="rent">Locataire</MenuItem>
-                <MenuItem value="free">Gratuit</MenuItem>
+                <MenuItem value="free">Gratuit (famille/amis)</MenuItem>
               </TextField>
             </Grid>
 
@@ -385,10 +431,10 @@ const CreditApplication = () => {
                 onChange={handleChange}
               >
                 <MenuItem value="NA">Non renseigné</MenuItem>
-                <MenuItem value="little">Peu</MenuItem>
-                <MenuItem value="moderate">Moyen</MenuItem>
-                <MenuItem value="quite rich">Assez riche</MenuItem>
-                <MenuItem value="rich">Riche</MenuItem>
+                <MenuItem value="little">Peu (≤ 100 DM)</MenuItem>
+                <MenuItem value="moderate">Modéré (100-500 DM)</MenuItem>
+                <MenuItem value="quite rich">Assez riche (500-1000 DM)</MenuItem>
+                <MenuItem value="rich">Riche ( ≥ 1000 DM)</MenuItem>
               </TextField>
             </Grid>
 
@@ -402,10 +448,19 @@ const CreditApplication = () => {
                 onChange={handleChange}
               >
                 <MenuItem value="NA">Non renseigné</MenuItem>
-                <MenuItem value="little">Peu</MenuItem>
-                <MenuItem value="moderate">Moyen</MenuItem>
-                <MenuItem value="rich">Riche</MenuItem>
+                <MenuItem value="little">Peu (≤ 200 DM)</MenuItem>
+                <MenuItem value="moderate">Modéré (200-1000 DM)</MenuItem>
+                <MenuItem value="rich">Riche ( ≥ 1000 DM)</MenuItem>
               </TextField>
+            </Grid>
+
+            <Grid item xs={12}>
+              <Alert severity="info" icon={<Info />}>
+                <Typography variant="body2">
+                  Ces informations sont essentielles pour notre système d'évaluation de crédit basé sur le German Credit Dataset.
+                  Elles nous aident à déterminer votre profil de risque de manière précise.
+                </Typography>
+              </Alert>
             </Grid>
           </Grid>
         );
@@ -421,12 +476,15 @@ const CreditApplication = () => {
               <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold' }}>
                 Confirmation de votre demande
               </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Vérifiez les informations avant de soumettre votre demande
+              </Typography>
             </Grid>
 
             <Grid item xs={12}>
               <Card elevation={0} sx={{ border: '2px solid', borderColor: 'primary.main' }}>
                 <CardContent>
-                  <Grid container spacing={2}>
+                  <Grid container spacing={3}>
                     <Grid item xs={12} sm={6}>
                       <Typography variant="caption" color="text.secondary">
                         Montant demandé
@@ -450,7 +508,7 @@ const CreditApplication = () => {
                         Objectif
                       </Typography>
                       <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
-                        {formData.purpose}
+                        {getPurposeLabel(formData.purpose)}
                       </Typography>
                     </Grid>
 
@@ -459,7 +517,7 @@ const CreditApplication = () => {
                         Mensualité estimée
                       </Typography>
                       <Typography variant="h6" color="success.main" sx={{ fontWeight: 'bold' }}>
-                        ~{monthlyPayment} €
+                        ~{monthlyPayment} €/mois
                       </Typography>
                     </Grid>
                   </Grid>
@@ -467,10 +525,45 @@ const CreditApplication = () => {
               </Card>
             </Grid>
 
+            {!hasProfile && (
+              <Grid item xs={12}>
+                <Card elevation={0} sx={{ bgcolor: '#fff3cd', border: 'none' }}>
+                  <CardContent>
+                    <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
+                      Profil qui sera créé :
+                    </Typography>
+                    <Grid container spacing={1}>
+                      <Grid item xs={6}>
+                        <Typography variant="body2">
+                          <strong>Âge:</strong> {formData.age} ans
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="body2">
+                          <strong>Sexe:</strong> {formData.sex === 'male' ? 'Homme' : 'Femme'}
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="body2">
+                          <strong>Emploi:</strong> {getJobLabel(formData.job)}
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="body2">
+                          <strong>Logement:</strong> {formData.housing === 'own' ? 'Propriétaire' : formData.housing === 'rent' ? 'Locataire' : 'Gratuit'}
+                        </Typography>
+                      </Grid>
+                    </Grid>
+                  </CardContent>
+                </Card>
+              </Grid>
+            )}
+
             <Grid item xs={12}>
               <Alert severity="info">
                 <Typography variant="body2">
-                  ⚠️ En soumettant cette demande, vous acceptez que vos informations soient analysées par notre système d'évaluation de crédit basé sur l'IA. Vous recevrez une réponse sous 24-48 heures.
+                  ⚠️ En soumettant cette demande, vous acceptez que vos informations soient analysées par notre système d'évaluation de crédit basé sur l'IA et le German Credit Dataset. 
+                  Vous recevrez une réponse sous 24-48 heures.
                 </Typography>
               </Alert>
             </Grid>
@@ -491,7 +584,8 @@ const CreditApplication = () => {
             Demande soumise avec succès !
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            Votre demande de crédit est en cours d'analyse. Vous recevrez une notification dès que nous aurons terminé l'évaluation.
+            Votre demande de crédit est en cours d'analyse par notre système IA basé sur le German Credit Dataset. 
+            Vous recevrez une notification dès que nous aurons terminé l'évaluation.
           </Typography>
           <CircularProgress size={30} />
           <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block' }}>
@@ -514,7 +608,7 @@ const CreditApplication = () => {
             <ArrowBack />
           </IconButton>
           <Typography variant="h6" sx={{ ml: 2 }}>
-            Demande de Crédit
+            Nouvelle Demande de Crédit
           </Typography>
         </Toolbar>
       </AppBar>
@@ -555,7 +649,7 @@ const CreditApplication = () => {
                   startIcon={loading ? <CircularProgress size={20} /> : <Send />}
                   size="large"
                 >
-                  Soumettre la demande
+                  {loading ? 'Soumission...' : 'Soumettre la demande'}
                 </Button>
               ) : (
                 <Button 

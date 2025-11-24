@@ -11,6 +11,7 @@ import ClientDashboard from './components/client/ClientDashboard';
 import ClientProfile from './components/client/ClientProfile';
 import CreditApplication from './components/client/CreditApplication';
 import AdminDashboard from './components/admin/AdminDashboard';
+import AdminAnalytics from './components/admin/AdminAnalytics';
 import ClientList from './components/admin/ClientList';
 import ClientDetail from './components/admin/ClientDetail';
 
@@ -124,6 +125,15 @@ function App() {
               </PrivateRoute>
             }
           />
+          <Route
+            path="/admin/analytics"
+            element={
+              <PrivateRoute adminOnly={true}>
+                <AdminAnalytics />
+              </PrivateRoute>
+            }
+          />
+
           <Route
             path="/admin/clients"
             element={

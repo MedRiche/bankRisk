@@ -1,4 +1,4 @@
-// src/components/clients/ClientList.jsx
+// src/components/admin/ClientList.jsx (Corrigé)
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -19,6 +19,8 @@ import {
   Chip,
   AppBar,
   Toolbar,
+  TextField,
+  InputAdornment,
 } from '@mui/material';
 import {
   Add,
@@ -26,6 +28,7 @@ import {
   Delete,
   Visibility,
   ExitToApp,
+  Search,
 } from '@mui/icons-material';
 import clientService from '../../services/clientService';
 import authService from '../../services/authService';
@@ -33,18 +36,31 @@ import authService from '../../services/authService';
 const ClientList = () => {
   const navigate = useNavigate();
   const [clients, setClients] = useState([]);
+  const [filteredClients, setFilteredClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     loadClients();
   }, []);
+
+  useEffect(() => {
+    const filtered = clients.filter(client =>
+      client.user_email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      client.age?.toString().includes(searchTerm) ||
+      client.sex?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      client.housing?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    setFilteredClients(filtered);
+  }, [searchTerm, clients]);
 
   const loadClients = async () => {
     try {
       setLoading(true);
       const data = await clientService.getAllClients();
       setClients(data);
+      setFilteredClients(data);
       setError('');
     } catch (err) {
       setError('Erreur lors du chargement des clients');
@@ -70,18 +86,25 @@ const ClientList = () => {
     navigate('/login');
   };
 
-  const getSexStatusLabel = (status) => {
+  const getJobLabel = (job) => {
     const labels = {
-      A91: 'Homme célibataire',
-      A92: 'Femme célibataire',
-      A93: 'Homme marié',
-      A94: 'Femme mariée',
+      0: 'Chômeur',
+      1: 'Non qualifié',
+      2: 'Qualifié',
+      3: 'Cadre',
     };
-    return labels[status] || status;
+    return labels[job] || `Niveau ${job}`;
   };
 
-  const getTelephoneLabel = (tel) => {
-    return tel === 'A191' ? 'Oui' : 'Non';
+  const getAccountLabel = (account) => {
+    const labels = {
+      'little': 'Peu',
+      'moderate': 'Moyen',
+      'quite rich': 'Assez riche',
+      'rich': 'Riche',
+      'NA': 'Non renseigné',
+    };
+    return labels[account] || account;
   };
 
   if (loading) {
@@ -93,7 +116,7 @@ const ClientList = () => {
   }
 
   return (
-    <Box sx={{ flexGrow: 1 }}>
+    <Box sx={{ flexGrow: 1, bgcolor: '#f5f5f5', minHeight: '100vh' }}>
       <AppBar position="static">
         <Toolbar>
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
@@ -117,70 +140,116 @@ const ClientList = () => {
 
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
           <Typography variant="h5">
-            Liste des Clients ({clients.length})
+            Clients German Credit Dataset ({filteredClients.length})
           </Typography>
           <Button
             variant="contained"
             startIcon={<Add />}
-            onClick={() => navigate('/clients/new')}
+            onClick={() => navigate('/admin/clients/new')}
           >
             Nouveau Client
           </Button>
         </Box>
 
-        <TableContainer component={Paper}>
+        {/* Barre de recherche */}
+        <TextField
+          fullWidth
+          variant="outlined"
+          placeholder="Rechercher par email, âge, sexe, logement..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          sx={{ mb: 3 }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <Search />
+              </InputAdornment>
+            ),
+          }}
+        />
+
+        <TableContainer component={Paper} elevation={0}>
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell><strong>Nom</strong></TableCell>
+                <TableCell><strong>Email</strong></TableCell>
                 <TableCell><strong>Âge</strong></TableCell>
-                <TableCell><strong>Statut</strong></TableCell>
-                <TableCell><strong>Téléphone</strong></TableCell>
-                <TableCell><strong>Travailleur étranger</strong></TableCell>
+                <TableCell><strong>Sexe</strong></TableCell>
+                <TableCell><strong>Emploi</strong></TableCell>
+                <TableCell><strong>Logement</strong></TableCell>
+                <TableCell><strong>Compte Épargne</strong></TableCell>
+                <TableCell><strong>Compte Courant</strong></TableCell>
                 <TableCell align="right"><strong>Actions</strong></TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {clients.length === 0 ? (
+              {filteredClients.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} align="center">
+                  <TableCell colSpan={8} align="center">
                     <Typography variant="body2" color="text.secondary" sx={{ py: 3 }}>
-                      Aucun client trouvé. Cliquez sur "Nouveau Client" pour commencer.
+                      {searchTerm ? 'Aucun client trouvé pour cette recherche.' : 'Aucun client trouvé.'}
                     </Typography>
                   </TableCell>
                 </TableRow>
               ) : (
-                clients.map((client) => (
+                filteredClients.map((client) => (
                   <TableRow key={client.id} hover>
-                    <TableCell>{client.name}</TableCell>
-                    <TableCell>{client.age_in_years} ans</TableCell>
+                    <TableCell>
+                      <Typography variant="body2" fontWeight="bold">
+                        {client.user_email || 'N/A'}
+                      </Typography>
+                    </TableCell>
                     <TableCell>
                       <Chip
-                        label={getSexStatusLabel(client.sex_status)}
+                        label={`${client.age} ans`}
                         size="small"
                         color="primary"
                         variant="outlined"
                       />
                     </TableCell>
-                    <TableCell>{getTelephoneLabel(client.telephone)}</TableCell>
                     <TableCell>
                       <Chip
-                        label={client.foreign_worker === 'A201' ? 'Oui' : 'Non'}
+                        label={client.sex === 'male' ? 'Homme' : 'Femme'}
                         size="small"
-                        color={client.foreign_worker === 'A201' ? 'warning' : 'default'}
+                        color={client.sex === 'male' ? 'primary' : 'secondary'}
                       />
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={getJobLabel(client.job)}
+                        size="small"
+                        color="default"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={client.housing === 'own' ? 'Propriétaire' : 
+                               client.housing === 'rent' ? 'Locataire' : 'Gratuit'}
+                        size="small"
+                        color="info"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">
+                        {getAccountLabel(client.saving_accounts)}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">
+                        {getAccountLabel(client.checking_account)}
+                      </Typography>
                     </TableCell>
                     <TableCell align="right">
                       <IconButton
                         color="primary"
-                        onClick={() => navigate(`/clients/${client.id}`)}
+                        onClick={() => navigate(`/admin/clients/${client.id}`)}
                         title="Voir les détails"
                       >
                         <Visibility />
                       </IconButton>
                       <IconButton
                         color="info"
-                        onClick={() => navigate(`/clients/${client.id}/edit`)}
+                        onClick={() => navigate(`/admin/clients/${client.id}/edit`)}
                         title="Modifier"
                       >
                         <Edit />

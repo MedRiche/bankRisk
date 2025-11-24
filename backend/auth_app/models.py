@@ -1,3 +1,4 @@
+# backend/auth_app/models.py
 from mongoengine import Document, StringField, BooleanField, EmailField
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -10,6 +11,11 @@ class CustomUser(Document):
     password_hash = StringField(required=True)
     is_active = BooleanField(default=True)
     is_staff = BooleanField(default=False)
+
+    
+    @property
+    def is_authenticated(self):
+        return True
 
     def set_password(self, raw_password):
         """Hash le mot de passe et le stocke"""
