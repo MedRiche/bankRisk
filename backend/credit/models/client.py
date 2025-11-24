@@ -31,3 +31,7 @@ class Client(Document):
     
     def __str__(self):
         return f"Client {self.age} ans - {self.sex}"
+    
+    def save(self, *args, **kwargs):
+        self.updated_at = datetime.datetime.utcnow()
+        return super(Client, self).save(*args, **kwargs)

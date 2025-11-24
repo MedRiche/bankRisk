@@ -1,6 +1,7 @@
 # backend/credit/serializers/client_serializers.py
 from rest_framework import serializers
 from credit.models.client import Client
+import datetime
 
 class ClientSerializer(serializers.Serializer):
     id = serializers.CharField(read_only=True)
@@ -28,6 +29,7 @@ class ClientSerializer(serializers.Serializer):
     def update(self, instance, validated_data):
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
+        instance.updated_at = datetime.datetime.utcnow()
         instance.save()
         return instance
     

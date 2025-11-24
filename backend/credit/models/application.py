@@ -1,4 +1,3 @@
-
 # backend/credit/models/application.py
 from mongoengine import Document, ReferenceField, StringField, IntField, FloatField, DateTimeField
 from .client import Client
@@ -43,5 +42,6 @@ class CreditApplication(Document):
         return f"Application {self.credit_amount}€ - {self.status}"
     
     def save(self, *args, **kwargs):
-        self.updated_at = datetime.datetime.utcnow()
+        if not self.submission_date:
+            self.submission_date = datetime.datetime.utcnow()
         return super(CreditApplication, self).save(*args, **kwargs)

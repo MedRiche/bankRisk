@@ -6,6 +6,7 @@ from pathlib import Path
 from datetime import timedelta
 import mongoengine
 import os
+import logging
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -70,11 +71,15 @@ TEMPLATES = [
 WSGI_APPLICATION = 'bankrisk_backend.wsgi.application'
 
 # MongoDB Configuration
-mongoengine.connect(
-    db='bankrisk_db',
-    host='mongodb://localhost:27017/bankrisk_db',
-    alias='default'
-)
+try:
+    mongoengine.connect(
+        db='bankrisk_db',
+        host='mongodb://localhost:27017/bankrisk_db',
+        alias='default'
+    )
+    print("✅ MongoDB connecté avec succès!")
+except Exception as e:
+    print(f"❌ Erreur de connexion MongoDB: {e}")
 
 # Dummy database pour Django
 DATABASES = {
@@ -113,7 +118,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # REST Framework Configuration
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'auth_app.authentication.MongoJWTAuthentication',  # Notre classe custom
+        'auth_app.authentication.MongoJWTAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
@@ -122,8 +127,8 @@ REST_FRAMEWORK = {
 
 # JWT Configuration
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(hours=24),  # 24 heures
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),    # 7 jours
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=24),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'ROTATE_REFRESH_TOKENS': False,
     'BLACKLIST_AFTER_ROTATION': False,
     'UPDATE_LAST_LOGIN': False,
@@ -141,4 +146,38 @@ SIMPLE_JWT = {
     
     'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
     'TOKEN_TYPE_CLAIM': 'token_type',
+}
+
+# Logging Configuration
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'credit': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'auth_app': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
 }

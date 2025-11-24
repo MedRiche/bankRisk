@@ -14,6 +14,9 @@ import AdminDashboard from './components/admin/AdminDashboard';
 import AdminAnalytics from './components/admin/AdminAnalytics';
 import ClientList from './components/admin/ClientList';
 import ClientDetail from './components/admin/ClientDetail';
+import DebugAPI from './components/admin/DebugAPI';
+import NewClient from './components/admin/NewClient';
+import ApplicationDetail from './components/admin/ApplicationDetail';
 
 import authService from './services/authService';
 
@@ -90,6 +93,16 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
 
+          {/* Route Debug (accessible aux admins) */}
+          <Route
+            path="/debug"
+            element={
+              <PrivateRoute adminOnly={true}>
+                <DebugAPI />
+              </PrivateRoute>
+            }
+          />
+
           {/* Routes Client */}
           <Route
             path="/client/dashboard"
@@ -147,6 +160,22 @@ function App() {
             element={
               <PrivateRoute adminOnly={true}>
                 <ClientDetail />
+              </PrivateRoute>
+            }
+          />
+           <Route
+            path="/admin/clients/new"
+            element={
+              <PrivateRoute adminOnly={true}>
+                <NewClient />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/admin/applications/:id"
+            element={
+              <PrivateRoute adminOnly={true}>
+                <ApplicationDetail />
               </PrivateRoute>
             }
           />
